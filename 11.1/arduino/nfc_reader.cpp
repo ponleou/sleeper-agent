@@ -107,7 +107,7 @@ void NfcReader::stateful_communication() {
     if (!this->completed)
         this->communicate();
     else 
-        this->check_persistent_connection();
+        this->check_persistent_connection(3);
 }
 
 bool NfcCommands::identify(PN532 &nfc) {
