@@ -4,4 +4,4 @@ Diagnostics:
 CompileFlags:
   Add: 
     - "-ferror-limit=100"
-    - "-DCLANGD"
+    - "-D__CLANGD__"

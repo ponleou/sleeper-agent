@@ -1,4 +1,4 @@
-#ifdef CLANGD
+#ifdef __CLANGD__
 #include <Arduino.h>
 #endif
 
