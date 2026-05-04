@@ -1,0 +1,28 @@
+<resources>
+    <string name="app_name">Sleeper Agent</string>
+    <string name="fg_channel_name">Notification collector</string>
+    <string name="fg_title">Notification collector running</string>
+    <string name="fg_body">Listening for notifications in the background</string>
+    <string name="status_title">Status</string>
+    <string name="status_format">Post notifications: %1$s | Access: %2$s</string>
+    <string name="status_hint">Keep the foreground service running to stay active while idle.</string>
+    <string name="permission_granted">granted</string>
+    <string name="permission_not_granted">not granted</string>
+    <string name="permission_not_required">not required</string>
+    <string name="access_enabled">enabled</string>
+    <string name="access_disabled">disabled</string>
+    <string name="action_request_permission">Request notification permission</string>
+    <string name="action_open_settings">Open notification access settings</string>
+    <string name="action_start_foreground">Start foreground service</string>
+    <string name="logs_title">Captured notifications</string>
+    <string name="logs_empty">No notifications captured yet.</string>
+    <string name="stats_title">Collector status</string>
+    <string name="stats_total_updates">Total updates: %1$d</string>
+    <string name="stats_unique_notifications">Unique notifications: %1$d</string>
+    <string name="stats_unique_apps">Unique apps: %1$d</string>
+    <string name="stats_last_package">Last app: %1$s</string>
+    <string name="stats_last_title">Last title: %1$s</string>
+    <string name="stats_none">none</string>
+    <string name="log_channel_name">Notification logs</string>
+    <string name="log_notification_title">Collector status</string>
+</resources>
