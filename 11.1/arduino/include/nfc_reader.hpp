@@ -17,6 +17,8 @@
 #define INS_IDENTIFY 0x01
 #define LE_IDENTITY 0x06 // 6 characters for ID
 
+#define INS_POLL 0x02
+
 #define P_NULL 0x00
 
 #define INS_SELECT 0xA4
@@ -29,10 +31,17 @@ class NfcReader {
     PN532 nfc;
     bool connected;
     bool selected;
+    bool completed;
+
+    unsigned long last_communication_ms;
+
+    uint8_t failed_connection_count;
 
     void check_connection();
+    void check_persistent_connection(uint8_t tolerance);
     void select_hce();
     void communicate();
+    void reset_state();
 
   public:
     uint32_t version_data;
@@ -44,8 +53,9 @@ class NfcReader {
 };
 
 class NfcCommands {
-    protected:
-        static void identify(PN532 nfc);
+  protected:
+    static bool identify(PN532 &nfc);
+    static bool poll (PN532 &nfc);
 
     friend NfcReader;
 };

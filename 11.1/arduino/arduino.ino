@@ -13,7 +13,11 @@ void setup(void) {
     }
 
     Serial1.begin(115200);
-    nfc.initialise();
+    if (!nfc.initialise()) {
+        Serial.println("Failed to start NFC");
+        while (true) {
+        }
+    }
 }
 
 void loop() {
