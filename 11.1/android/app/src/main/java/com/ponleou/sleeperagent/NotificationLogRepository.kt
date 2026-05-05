@@ -1,5 +1,6 @@
 package com.ponleou.sleeperagent
 
+import java.util.ArrayDeque
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -11,12 +12,33 @@ object NotificationLogRepository {
     private val entriesByKey = LinkedHashMap<String, LogEntry>()
     private val packageByKey = LinkedHashMap<String, String>()
     private val statsState = MutableStateFlow(LogStats())
+    private val pendingQueue: ArrayDeque<PendingPayload> = ArrayDeque()
 
     val logs: StateFlow<List<LogEntry>> = logState.asStateFlow()
     val stats: StateFlow<LogStats> = statsState.asStateFlow()
 
     fun getStatsSnapshot(): LogStats {
         return statsState.value
+    }
+
+    @Synchronized
+    fun enqueuePendingPayload(entry: LogEntry) {
+        pendingQueue.addLast(PendingPayload(buildPayload(entry)))
+    }
+
+    @Synchronized
+    fun peekPendingPayload(): PendingPayload? {
+        return pendingQueue.peekFirst()
+    }
+
+    @Synchronized
+    fun popPendingPayload(): PendingPayload? {
+        return pendingQueue.pollFirst()
+    }
+
+    @Synchronized
+    fun hasPendingPayload(): Boolean {
+        return pendingQueue.isNotEmpty()
     }
 
     @Synchronized
@@ -90,7 +112,22 @@ object NotificationLogRepository {
             lastUpdatedMillis = entry.timestampMillis
         )
     }
+
+    private fun buildPayload(entry: LogEntry): ByteArray {
+        val payload = buildString {
+            append(entry.packageName)
+            append('\u0000')
+            append(entry.title)
+            append('\u0000')
+            append(entry.text)
+        }
+        return payload.toByteArray(Charsets.UTF_8)
+    }
 }
+
+data class PendingPayload(
+    val payload: ByteArray
+)
 
 data class LogEntry(
     val timestampMillis: Long,

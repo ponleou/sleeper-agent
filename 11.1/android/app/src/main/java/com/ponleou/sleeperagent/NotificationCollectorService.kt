@@ -43,6 +43,7 @@ class NotificationCollectorService : NotificationListenerService() {
         }
         val wasAdded = NotificationLogRepository.upsertIfChanged(entry, sbn.key, signature)
         if (wasAdded) {
+            NotificationLogRepository.enqueuePendingPayload(entry)
             postLogNotification(entry)
             Log.d(TAG, "pkg=${sbn.packageName} title=$title text=$text")
         }

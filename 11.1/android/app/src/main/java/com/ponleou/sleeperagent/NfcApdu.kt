@@ -7,12 +7,20 @@ object NfcApdu {
     const val INS_SELECT: Int = 0xA4
     const val INS_IDENTIFY: Int = 0x01
     const val INS_POLL: Int = 0x02
+    const val INS_COLLECT: Int = 0x03
 
     const val P1_SELECT_BY_AID: Int = 0x04
     const val P2_FIRST_OR_ONLY: Int = 0x00
 
     const val P_NULL: Int = 0x00
     const val LE_IDENTITY: Int = 0x06
+
+    const val P1_COLLECT_PROVIDE_LENGTH: Int = 0x01
+    const val P2_COLLECT_LENGTH_POS: Int = 0x00
+
+    const val MAX_APDU_RESPONSE_BYTES: Int = 255
+    const val COLLECT_OVERHEAD_BYTES: Int = 3
+    const val MAX_COLLECT_DATA_BYTES: Int = MAX_APDU_RESPONSE_BYTES - COLLECT_OVERHEAD_BYTES
 
     val AID_SLEEPER_AGENT: ByteArray = byteArrayOf(
         0xF0.toByte(),
@@ -32,5 +40,6 @@ object NfcApdu {
     )
 
     val SW_SUCCESS: ByteArray = byteArrayOf(0x90.toByte(), 0x00.toByte())
+    val SW_DATA: ByteArray = byteArrayOf(0x61.toByte(), 0x00.toByte())
     val SW_UNKNOWN: ByteArray = byteArrayOf(0x6A.toByte(), 0x82.toByte())
 }
