@@ -19,7 +19,7 @@ void NfcReader::check_connection() {
 }
 
 void NfcReader::check_persistent_connection(uint8_t tolerance = 5) {
-    if(NfcCommands::poll(this->nfc))
+    if (NfcCommands::poll(this->nfc, nullptr))
         this->failed_connection_count = 0;
     else
         this->failed_connection_count++;
@@ -49,11 +49,11 @@ void NfcReader::select_hce() {
                            0x65,
                            0x6E,
                            0x74};
-    uint8_t resLen = 255;
-    uint8_t response[resLen];
+        uint8_t response[255];
+        uint8_t res_length = sizeof(response);
 
-    if (this->nfc.inDataExchange(selectAID, sizeof(selectAID), response, &resLen))
-        this->selected = resLen >= 2 && response[resLen - 2] == 0x90 && response[resLen - 1] == 0x00;
+    if (this->nfc.inDataExchange(selectAID, sizeof(selectAID), response, &res_length))
+        this->selected = res_length >= 2 && response[res_length - 2] == 0x90 && response[res_length - 1] == 0x00;
 }
 
 bool NfcReader::initialise() {
@@ -69,7 +69,7 @@ bool NfcReader::initialise() {
 void NfcReader::reset_state() {
     this->connected = false;
     this->selected = false;
-    this->completed = false;
+    this->identified = false;
     this->failed_connection_count = 0;
 }
 
@@ -79,14 +79,14 @@ void NfcReader::stateful_communication() {
 
     this->last_communication_ms = millis();
 
-    char status[32] = {0};
-    if (this->connected)
-        strcat(status, "Connected ");
-    if (this->selected)
-        strcat(status, "Selected ");
-    if (this->completed)
-        strcat(status, "Completed ");
-    Serial.println(status);
+    // char status[32] = {0};
+    // if (this->connected)
+    //     strcat(status, "Connected ");
+    // if (this->selected)
+    //     strcat(status, "Selected ");
+    // if (this->identified)
+    //     strcat(status, "Identified ");
+    // Serial.println(status);
 
     if (!this->connected) {
         this->reset_state();
@@ -104,21 +104,21 @@ void NfcReader::stateful_communication() {
         return;
     }
 
-    if (!this->completed)
-        this->communicate();
-    else 
-        this->check_persistent_connection(3);
+    // if (!this->identified)
+    this->communicate();
+    // else
+    //     this->check_persistent_connection(3);
 }
 
 bool NfcCommands::identify(PN532 &nfc) {
-    uint8_t command[] = {CLA_PROPRIETARY, INS_IDENTIFY, P_NULL, P_NULL, LE_IDENTITY};
+    uint8_t command[] = {CLA_PROPRIETARY, INS_IDENTIFY, P_NULL, P_NULL, LE_ID_LENGTH};
 
-    uint8_t resLen = 255;
-    uint8_t response[resLen];
-    if (!nfc.inDataExchange(command, sizeof(command), response, &resLen))
+        uint8_t response[255];
+        uint8_t res_length = sizeof(response);
+    if (!nfc.inDataExchange(command, sizeof(command), response, &res_length))
         return false;
 
-    if (resLen < 2 || response[resLen - 2] != 0x90 || response[resLen - 1] != 0x00)
+    if (res_length < 2 || response[res_length - 2] != 0x90 || response[res_length - 1] != 0x00)
         return false;
 
     char deviceID[7];
@@ -128,26 +128,76 @@ bool NfcCommands::identify(PN532 &nfc) {
     return true;
 }
 
-bool NfcCommands::poll(PN532 &nfc) {
+bool NfcCommands::poll(PN532 &nfc, bool *initiate_collect) {
     uint8_t command[] = {CLA_PROPRIETARY, INS_POLL, P_NULL, P_NULL};
 
-    uint8_t resLen = 255;
-    uint8_t response[resLen];
-    if (!nfc.inDataExchange(command, sizeof(command), response, &resLen))
+        uint8_t response[255];
+        uint8_t res_length = sizeof(response);
+    if (!nfc.inDataExchange(command, sizeof(command), response, &res_length))
         return false;
 
-    if (resLen < 2 || response[resLen - 2] != 0x90 || response[resLen - 1] != 0x00)
+    if (res_length < 2)
         return false;
 
-    return true;
+    bool success = response[res_length - 2] == SW1_SUCCESS && response[res_length - 1] == SW2_SUCCESS;
+    bool data = response[res_length - 2] == SW1_DATA;
+    *initiate_collect = data;
+
+    return success || data;
+}
+
+bool NfcCommands::collect(PN532 &nfc, bool *initiate_collect, uint8_t data[], uint8_t *data_length) {
+    uint8_t command[] = {CLA_PROPRIETARY, INS_COLLECT, P1_COLLECT_PROVIDE_LENGTH, P2_COLLECT_LENGTH_POS, LE_ALL};
+
+        uint8_t response[255];
+        uint8_t res_length = sizeof(response);
+    if (!nfc.inDataExchange(command, sizeof(command), response, &res_length))
+        return false;
+
+    if (res_length < 3)
+        return false;
+
+    bool success = response[res_length - 2] == SW1_SUCCESS && response[res_length - 1] == SW2_SUCCESS;
+    bool has_more_data = response[res_length - 2] == SW1_DATA;
+    *initiate_collect = has_more_data;
+
+    if (!(success || has_more_data))
+        return false;
+
+    uint8_t length = response[P2_COLLECT_LENGTH_POS];
+    *data_length = min(length, res_length - 3);
+    memcpy(data, response + 1, *data_length);
+
+    return success || has_more_data;
 }
 
 void NfcReader::communicate() {
-    if (!this->completed)
-        this->connected = NfcCommands::identify(this->nfc);
+    if (!this->identified)
+        this->identified = this->connected = NfcCommands::identify(this->nfc);
+
+    if (!(this->connected && this->identified))
+        return;
+
+    bool collect_data = false;
+    this->connected = NfcCommands::poll(this->nfc, &collect_data);
 
     if (!this->connected)
         return;
 
-    this->completed = true;
+    uint8_t data_length = 0;
+    uint8_t data[255];
+    while (collect_data && this->connected) {
+        collect_data = false;
+        this->connected = NfcCommands::collect(this->nfc, &collect_data, data, &data_length);
+
+        if (!this->connected)
+            continue;
+
+        if (data_length > 0) {
+            for (uint8_t i = 0; i < data_length; i++) {
+                Serial.print((char)data[i]);
+            }
+            Serial.println();
+        }
+    }
 }

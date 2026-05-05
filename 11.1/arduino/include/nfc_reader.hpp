@@ -11,19 +11,28 @@
 #include <PN532_HSU.cpp>
 #endif
 
-#define CLA_STANDARD 0x00
 #define CLA_PROPRIETARY 0x80
 
 #define INS_IDENTIFY 0x01
-#define LE_IDENTITY 0x06 // 6 characters for ID
-
 #define INS_POLL 0x02
+#define INS_COLLECT 0x03
 
 #define P_NULL 0x00
+#define P1_COLLECT_PROVIDE_LENGTH 0x01
+#define P2_COLLECT_LENGTH_POS 0x00
+
+#define LE_ID_LENGTH 0x06 // 6 characters for ID
+#define LE_ALL 0x00
+
+#define CLA_STANDARD 0x00
 
 #define INS_SELECT 0xA4
 #define INS_SELECT_P1_AID 0x04
 #define INS_SELECT_P1_FIRST 0x00
+
+#define SW1_DATA 0x61
+#define SW1_SUCCESS 0x90
+#define SW2_SUCCESS 0x00
 
 class NfcReader {
   private:
@@ -31,7 +40,7 @@ class NfcReader {
     PN532 nfc;
     bool connected;
     bool selected;
-    bool completed;
+    bool identified;
 
     unsigned long last_communication_ms;
 
@@ -55,7 +64,8 @@ class NfcReader {
 class NfcCommands {
   protected:
     static bool identify(PN532 &nfc);
-    static bool poll (PN532 &nfc);
+    static bool poll (PN532 &nfc, bool *initiate_collect);
+    static bool collect(PN532 &nfc, bool *initiate_collect, uint8_t data[], uint8_t *data_length);
 
     friend NfcReader;
 };
