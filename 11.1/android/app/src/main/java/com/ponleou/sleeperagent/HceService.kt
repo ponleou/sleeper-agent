@@ -1,29 +1,55 @@
 package com.ponleou.sleeperagent
 
+import android.content.Intent
 import android.nfc.cardemulation.HostApduService
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import androidx.core.content.ContextCompat
 import java.security.SecureRandom
 import kotlin.math.min
 
-class SleeperHceService : HostApduService() {
+class HceService : HostApduService() {
     private var activePayload: PendingPayload? = null
     private var activeOffset: Int = 0
+    private val idleHandler = Handler(Looper.getMainLooper())
+    private val idleTimeoutRunnable = Runnable { stopCollector() }
 
     override fun processCommandApdu(commandApdu: ByteArray, extras: Bundle?): ByteArray {
         if (isSelectAid(commandApdu)) {
+            stopCollector()
             return NfcApdu.SW_SUCCESS
         }
 
         if (isIdentifyCommand(commandApdu)) {
+            stopCollector()
             val deviceId = getStoredDeviceId().toByteArray(Charsets.US_ASCII)
             return deviceId + NfcApdu.SW_SUCCESS
         }
 
+        if (isStartCollectorCommand(commandApdu)) {
+            startCollector()
+            return NfcApdu.SW_SUCCESS
+        }
+
+        if (isStopCollectorCommand(commandApdu)) {
+            stopCollector()
+            return NfcApdu.SW_SUCCESS
+        }
+
         if (isPollCommand(commandApdu)) {
+            if (!CollectorControl.isEnabled()) {
+                return NfcApdu.SW_UNKNOWN
+            }
+            recordCollectorActivity()
             return buildPollResponse()
         }
 
         if (isCollectCommand(commandApdu)) {
+            if (!CollectorControl.isEnabled()) {
+                return NfcApdu.SW_UNKNOWN
+            }
+            recordCollectorActivity()
             return buildCollectResponse()
         }
 
@@ -31,6 +57,7 @@ class SleeperHceService : HostApduService() {
     }
 
     override fun onDeactivated(reason: Int) {
+        stopCollector()
     }
 
     private fun isSelectAid(commandApdu: ByteArray): Boolean {
@@ -103,6 +130,38 @@ class SleeperHceService : HostApduService() {
             p2 == NfcApdu.P2_COLLECT_LENGTH_POS
     }
 
+    private fun isStartCollectorCommand(commandApdu: ByteArray): Boolean {
+        if (commandApdu.size < 4) {
+            return false
+        }
+
+        val cla = commandApdu[0].toInt() and 0xFF
+        val ins = commandApdu[1].toInt() and 0xFF
+        val p1 = commandApdu[2].toInt() and 0xFF
+        val p2 = commandApdu[3].toInt() and 0xFF
+
+        return cla == NfcApdu.CLA_PROPRIETARY &&
+            ins == NfcApdu.INS_START_CLIENT_COLLECTOR &&
+            p1 == NfcApdu.P_NULL &&
+            p2 == NfcApdu.P_NULL
+    }
+
+    private fun isStopCollectorCommand(commandApdu: ByteArray): Boolean {
+        if (commandApdu.size < 4) {
+            return false
+        }
+
+        val cla = commandApdu[0].toInt() and 0xFF
+        val ins = commandApdu[1].toInt() and 0xFF
+        val p1 = commandApdu[2].toInt() and 0xFF
+        val p2 = commandApdu[3].toInt() and 0xFF
+
+        return cla == NfcApdu.CLA_PROPRIETARY &&
+            ins == NfcApdu.INS_STOP_CLIENT_COLLECTOR &&
+            p1 == NfcApdu.P_NULL &&
+            p2 == NfcApdu.P_NULL
+    }
+
     private fun buildPollResponse(): ByteArray {
         return if (hasPendingPayload()) NfcApdu.SW_DATA else NfcApdu.SW_SUCCESS
     }
@@ -162,6 +221,29 @@ class SleeperHceService : HostApduService() {
         activeOffset = 0
     }
 
+    private fun startCollector() {
+        val wasEnabled = CollectorControl.isEnabled()
+        recordCollectorActivity()
+        if (!wasEnabled) {
+            val intent = Intent(this, CollectorForegroundService::class.java)
+            ContextCompat.startForegroundService(this, intent)
+        }
+    }
+
+    private fun stopCollector() {
+        CollectorControl.setEnabled(false)
+        idleHandler.removeCallbacks(idleTimeoutRunnable)
+        stopService(Intent(this, CollectorForegroundService::class.java))
+        activePayload = null
+        activeOffset = 0
+    }
+
+    private fun recordCollectorActivity() {
+        CollectorControl.recordActivity(IDLE_TIMEOUT_MS)
+        idleHandler.removeCallbacks(idleTimeoutRunnable)
+        idleHandler.postDelayed(idleTimeoutRunnable, IDLE_TIMEOUT_MS)
+    }
+
     private fun getStoredDeviceId(): String {
         val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
         val existing = prefs.getString(PREF_DEVICE_ID, null)
@@ -183,6 +265,7 @@ class SleeperHceService : HostApduService() {
     }
 
     companion object {
+        private const val IDLE_TIMEOUT_MS = 10 * 1000L // 10 seconds
         private const val PREFS_NAME = "sleeper_agent_prefs"
         private const val PREF_DEVICE_ID = "device_id"
         private const val DEVICE_ID_LENGTH = 6

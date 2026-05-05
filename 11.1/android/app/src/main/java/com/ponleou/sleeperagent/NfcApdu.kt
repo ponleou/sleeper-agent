@@ -8,12 +8,14 @@ object NfcApdu {
     const val INS_IDENTIFY: Int = 0x01
     const val INS_POLL: Int = 0x02
     const val INS_COLLECT: Int = 0x03
+    const val INS_START_CLIENT_COLLECTOR: Int = 0x04
+    const val INS_STOP_CLIENT_COLLECTOR: Int = 0x05
 
     const val P1_SELECT_BY_AID: Int = 0x04
     const val P2_FIRST_OR_ONLY: Int = 0x00
 
     const val P_NULL: Int = 0x00
-    const val LE_IDENTITY: Int = 0x06
+    const val LE_ID_LENGTH: Int = 0x06
 
     const val P1_COLLECT_PROVIDE_LENGTH: Int = 0x01
     const val P2_COLLECT_LENGTH_POS: Int = 0x00

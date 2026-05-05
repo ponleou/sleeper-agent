@@ -5,6 +5,11 @@
     <string name="fg_body">Listening for notifications in the background</string>
     <string name="status_title">Status</string>
     <string name="status_format">Post notifications: %1$s | Access: %2$s</string>
+    <string name="collector_state_enabled">enabled</string>
+    <string name="collector_state_disabled">disabled</string>
+    <string name="collector_enabled_format">Collector: %1$s</string>
+    <string name="collector_timeout_format">Timeout: %1$s</string>
+    <string name="collector_timeout_inactive">inactive</string>
     <string name="status_hint">Keep the foreground service running to stay active while idle.</string>
     <string name="permission_granted">granted</string>
     <string name="permission_not_granted">not granted</string>

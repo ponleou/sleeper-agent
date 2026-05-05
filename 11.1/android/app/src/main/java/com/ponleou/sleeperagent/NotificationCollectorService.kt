@@ -13,7 +13,9 @@ import androidx.core.app.NotificationManagerCompat
 class NotificationCollectorService : NotificationListenerService() {
     override fun onCreate() {
         super.onCreate()
-        createLogChannel()
+        if (LOG_NOTIFICATIONS_ENABLED) {
+            createLogChannel()
+        }
     }
 
     override fun onListenerConnected() {
@@ -21,6 +23,10 @@ class NotificationCollectorService : NotificationListenerService() {
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
+        if (!CollectorControl.isEnabled()) {
+            return
+        }
+
         if (shouldIgnoreNotification(sbn)) {
             return
         }
@@ -44,7 +50,9 @@ class NotificationCollectorService : NotificationListenerService() {
         val wasAdded = NotificationLogRepository.upsertIfChanged(entry, sbn.key, signature)
         if (wasAdded) {
             NotificationLogRepository.enqueuePendingPayload(entry)
-            postLogNotification(entry)
+            if (LOG_NOTIFICATIONS_ENABLED) {
+                postLogNotification(entry)
+            }
             Log.d(TAG, "pkg=${sbn.packageName} title=$title text=$text")
         }
     }
@@ -57,6 +65,7 @@ class NotificationCollectorService : NotificationListenerService() {
         private const val TAG = "NotifyCollector"
         private const val LOG_CHANNEL_ID = "collector_events"
         private const val LOG_NOTIFICATION_ID = 2000
+        private const val LOG_NOTIFICATIONS_ENABLED = false
     }
 
     private fun createLogChannel() {
