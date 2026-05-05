@@ -11,11 +11,15 @@
 #include <PN532_HSU.cpp>
 #endif
 
+#define POLLING_PERIOD 500
+
 #define CLA_PROPRIETARY 0x80
 
 #define INS_IDENTIFY 0x01
 #define INS_POLL 0x02
 #define INS_COLLECT 0x03
+#define INS_START_CLIENT_COLLECTOR 0x04
+#define INS_STOP_CLIENT_COLLECTOR 0x05
 
 #define P_NULL 0x00
 #define P1_COLLECT_PROVIDE_LENGTH 0x01
@@ -28,7 +32,7 @@
 
 #define INS_SELECT 0xA4
 #define INS_SELECT_P1_AID 0x04
-#define INS_SELECT_P1_FIRST 0x00
+#define INS_SELECT_P2_FIRST 0x00
 
 #define SW1_DATA 0x61
 #define SW1_SUCCESS 0x90
@@ -44,10 +48,7 @@ class NfcReader {
 
     unsigned long last_communication_ms;
 
-    uint8_t failed_connection_count;
-
     void check_connection();
-    void check_persistent_connection(uint8_t tolerance);
     void select_hce();
     void communicate();
     void reset_state();
@@ -66,6 +67,8 @@ class NfcCommands {
     static bool identify(PN532 &nfc);
     static bool poll (PN532 &nfc, bool *initiate_collect);
     static bool collect(PN532 &nfc, bool *initiate_collect, uint8_t data[], uint8_t *data_length);
+    static bool start_client_collector(PN532 &nfc);
+    static bool stop_client_collector(PN532 &nfc);
 
     friend NfcReader;
 };
