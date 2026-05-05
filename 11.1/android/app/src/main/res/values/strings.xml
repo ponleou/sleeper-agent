@@ -18,7 +18,6 @@
     <string name="access_disabled">disabled</string>
     <string name="action_request_permission">Request notification permission</string>
     <string name="action_open_settings">Open notification access settings</string>
-    <string name="action_start_foreground">Start foreground service</string>
     <string name="logs_title">Captured notifications</string>
     <string name="logs_empty">No notifications captured yet.</string>
     <string name="stats_title">Collector status</string>

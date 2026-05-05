@@ -35,7 +35,7 @@ class NotificationCollectorService : NotificationListenerService() {
         val title = extras.getString(Notification.EXTRA_TITLE) ?: ""
         val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString() ?: ""
         val entry = LogEntry(
-            timestampMillis = System.currentTimeMillis(),
+            timestampMillis = sbn.postTime,
             packageName = sbn.packageName,
             title = title,
             text = text

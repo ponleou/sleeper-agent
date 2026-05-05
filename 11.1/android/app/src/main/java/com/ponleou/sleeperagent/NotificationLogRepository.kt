@@ -120,6 +120,8 @@ object NotificationLogRepository {
             append(entry.title)
             append('\u0000')
             append(entry.text)
+            append('\u0000')
+            append(entry.timestampMillis)
         }
         return payload.toByteArray(Charsets.UTF_8)
     }

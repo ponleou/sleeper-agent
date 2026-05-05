@@ -35,6 +35,9 @@ import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.ponleou.sleeperagent.ui.theme.SleeperAgentTheme
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
@@ -63,8 +66,7 @@ class MainActivity : ComponentActivity() {
                         collectorDeadlineMillis = collectorState.deadlineMillis,
                         nowMillis = nowMillis,
                         onRequestPermission = { requestPostNotifications() },
-                        onOpenSettings = { openNotificationAccessSettings() },
-                        onStartForeground = { startCollectorForegroundService() }
+                        onOpenSettings = { openNotificationAccessSettings() }
                     )
                 }
             }
@@ -120,11 +122,6 @@ class MainActivity : ComponentActivity() {
         startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
     }
 
-    private fun startCollectorForegroundService() {
-        val intent = Intent(this, CollectorForegroundService::class.java)
-        ContextCompat.startForegroundService(this, intent)
-    }
-
     override fun onRequestPermissionsResult(
         requestCode: Int,
         permissions: Array<out String>,
@@ -144,8 +141,7 @@ fun MainScreen(
     collectorDeadlineMillis: Long,
     nowMillis: Long,
     onRequestPermission: () -> Unit,
-    onOpenSettings: () -> Unit,
-    onStartForeground: () -> Unit
+    onOpenSettings: () -> Unit
 ) {
     val enabledLabel = if (collectorEnabled) {
         stringResource(R.string.collector_state_enabled)
@@ -187,12 +183,6 @@ fun MainScreen(
         ) {
             Text(text = stringResource(R.string.action_open_settings))
         }
-        Button(
-            onClick = onStartForeground,
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp)
-        ) {
-            Text(text = stringResource(R.string.action_start_foreground))
-        }
         Text(text = stringResource(R.string.status_hint))
         Text(text = stringResource(R.string.logs_title))
         if (logs.isEmpty()) {
@@ -203,6 +193,7 @@ fun MainScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(logs) { entry ->
+                    Text(text = formatTimestamp(entry.timestampMillis))
                     Text(text = entry.packageName)
                     if (entry.title.isNotBlank()) {
                         Text(text = entry.title)
@@ -237,8 +228,7 @@ fun GreetingPreview() {
             collectorDeadlineMillis = System.currentTimeMillis() + 120_000,
             nowMillis = System.currentTimeMillis(),
             onRequestPermission = {},
-            onOpenSettings = {},
-            onStartForeground = {}
+            onOpenSettings = {}
         )
     }
 }
@@ -251,6 +241,11 @@ private fun formatDuration(millis: Long): String {
     val minutes = totalSeconds / 60
     val seconds = (totalSeconds % 60).toInt()
     return "%d:%02d".format(minutes, seconds)
+}
+
+private fun formatTimestamp(millis: Long): String {
+    val formatter = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+    return formatter.format(Date(millis))
 }
 
 data class StatusState(

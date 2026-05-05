@@ -11,7 +11,6 @@ void NfcReader::check_connection() {
         uint8_t uid[] = {0, 0, 0, 0, 0, 0, 0};
         uint8_t uidLength;
         this->connected = this->nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, &uid[0], &uidLength, 20, true);
-
 }
 
 void NfcReader::select_hce() {
@@ -56,6 +55,7 @@ void NfcReader::reset_state() {
     this->connected = false;
     this->selected = false;
     this->identified = false;
+    this->client_collector_active = false;
 }
 
 void NfcReader::stateful_communication() {
@@ -89,10 +89,7 @@ void NfcReader::stateful_communication() {
         return;
     }
 
-    // if (!this->identified)
     this->communicate();
-    // else
-    //     this->check_persistent_connection(3);
 }
 
 bool NfcCommands::identify(PN532 &nfc) {
@@ -191,13 +188,14 @@ void NfcReader::communicate() {
     if (!(this->connected && this->identified))
         return;
 
-    this->connected = NfcCommands::start_client_collector(this->nfc);
-    if (!this->connected)
-        return;
+    if (!this->client_collector_active) {
+        this->client_collector_active = this->connected = NfcCommands::start_client_collector(this->nfc);
+        if (!this->connected)
+            return;
+    }
 
     bool collect_data = false;
     this->connected = NfcCommands::poll(this->nfc, &collect_data);
-
     if (!this->connected)
         return;
 

@@ -45,6 +45,7 @@ class NfcReader {
     bool connected;
     bool selected;
     bool identified;
+    bool client_collector_active;
 
     unsigned long last_communication_ms;
 
