@@ -4,7 +4,7 @@ BleHost::BleHost()
     : service(BLE_SERVICE_UUID), session_id(BLE_SESSION_CHAR_UUID, BLERead, 6),
       data_enqueue(BLE_ENQUEUE_CHAR_UUID, BLERead | BLEWrite | BLENotify, 512),
       start_action(BLE_START_CHAR_UUID, BLEWrite), stop_action(BLE_STOP_CHAR_UUID, BLEWrite),
-      alert_action(BLE_ALERT_CHAR_UUID, BLEWrite), weblink(BLE_WEBLINK_CHAR_UUID, BLEWrite, 512) {
+      alert_action(BLE_ALERT_CHAR_UUID, BLEWrite), weblink(BLE_WEBLINK_CHAR_UUID, BLEWrite, 512), metadata(BLE_METADATA_CHAR_UUID, BLERead, 512){
 }
 
 void BleHost::initialise() {
@@ -17,6 +17,7 @@ void BleHost::initialise() {
     this->service.addCharacteristic(this->stop_action);
     this->service.addCharacteristic(this->alert_action);
     this->service.addCharacteristic(this->weblink);
+    this->service.addCharacteristic(this->metadata);
 
     BLE.addService(this->service);
     BLE.setAdvertisedService(this->service);
@@ -78,6 +79,12 @@ bool BleHost::read_weblink_char(String *value) {
     }
 
     return false;
+}
+
+void BleHost::write_metadata(String metadata) {
+    if (metadata == "")
+        metadata = " ";
+    this->metadata.writeValue(metadata);
 }
 
 void BleHost::debug_print() {

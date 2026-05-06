@@ -70,6 +70,9 @@ class NfcReader {
 
     bool initialise();
     void stateful_communication();
+    void start_action();
+    void open_link_action();
+    void stop_action();
 };
 
 class NfcCommands {

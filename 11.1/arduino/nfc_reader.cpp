@@ -60,6 +60,7 @@ void NfcReader::reset_state() {
     this->identity = " ";
     host.set_session_id(this->identity);
     host.reset_enqueued();
+    host.write_metadata(" ");
 }
 
 void NfcReader::stateful_communication() {
@@ -237,12 +238,14 @@ void NfcReader::communicate() {
     if (!(this->connected && this->identified))
         return;
 
-    // String metadata = "";
-    // this->connected = NfcCommands::collect_metadata(this->nfc, &metadata);
-    // if (!this->connected)
-    //     return;
-    // if (metadata != "")
-    //     Serial.println(metadata);
+    String metadata = "";
+    this->connected = NfcCommands::collect_metadata(this->nfc, &metadata);
+    if (!this->connected)
+        return;
+    if (metadata != "") {
+        this->host.write_metadata(metadata);
+        Serial.println(metadata);
+    }
 
     // this->connected = NfcCommands::open_weblink(this->nfc, "google.com");
     // if (!this->connected) {
@@ -296,4 +299,8 @@ void NfcReader::communicate() {
             Serial.println(combined);
         }
     }
+}
+
+void NfcReader::start_action() {
+
 }
