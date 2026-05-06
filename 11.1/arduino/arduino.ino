@@ -25,5 +25,6 @@ void setup(void) {
 }
 
 void loop() {
+    BLE.poll();
     nfc.stateful_communication();
 }

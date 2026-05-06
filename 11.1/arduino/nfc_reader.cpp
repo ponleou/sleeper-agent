@@ -59,6 +59,7 @@ void NfcReader::reset_state() {
 
     this->identity = "";
     host.set_session_id(this->identity);
+    host.reset_enqueued();
 }
 
 void NfcReader::stateful_communication() {
@@ -93,6 +94,10 @@ void NfcReader::stateful_communication() {
     }
 
     this->communicate();
+    bool written = this->host.enqueue_data(this->collected_queue);
+    if (written) {
+        Serial.println("Written");
+    }
 }
 
 bool NfcCommands::identify(PN532 &nfc, String *value) {

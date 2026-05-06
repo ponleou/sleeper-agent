@@ -2,7 +2,7 @@
 
 BleHost::BleHost()
     : service(BLE_SERVICE_UUID), session_id(BLE_SESSION_CHAR_UUID, BLERead, 6),
-      data_enqueue(BLE_DATAQUEUE_CHAR_UUID, BLERead | BLEWrite | BLENotify, 512),
+      data_enqueue(BLE_ENQUEUE_CHAR_UUID, BLERead | BLEWrite | BLENotify, 512),
       start_action(BLE_START_CHAR_UUID, BLEWrite), stop_action(BLE_STOP_CHAR_UUID, BLEWrite),
       alert_action(BLE_ALERT_CHAR_UUID, BLEWrite) {
 }
@@ -12,6 +12,7 @@ void BleHost::initialise() {
     BLE.setLocalName("SleeperAgent");
 
     this->service.addCharacteristic(this->data_enqueue);
+    this->service.addCharacteristic(this->session_id);
     this->service.addCharacteristic(this->start_action);
     this->service.addCharacteristic(this->stop_action);
     this->service.addCharacteristic(this->alert_action);
@@ -50,7 +51,7 @@ bool BleHost::read_action_char(BleHost::Action action, bool *value) {
 }
 
 bool BleHost::enqueue_data(queue<String> &queue) {
-    if (this->data_enqueue.written() && !queue.empty()) {
+    if (this->data_enqueue.valueLength() == 0 && !queue.empty()) {
         String val = queue.front();
         if (val.length() > 512)
             val = val.substring(0, 512);
@@ -59,4 +60,9 @@ bool BleHost::enqueue_data(queue<String> &queue) {
         return true;
     }
     return false;
+}
+
+void BleHost::reset_enqueued() {
+    if (this->data_enqueue.valueLength() > 0)
+        this->data_enqueue.writeValue("");
 }
