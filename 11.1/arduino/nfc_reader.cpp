@@ -1,16 +1,15 @@
 #include "include/nfc_reader.hpp"
 
-NfcReader::NfcReader(HardwareSerial &serial) : pn532hsu(serial), nfc(pn532hsu) {
+NfcReader::NfcReader(HardwareSerial &serial, BleHost &host) : pn532hsu(serial), nfc(pn532hsu), host(host) {
     this->version_data = 0;
     this->last_communication_ms = millis();
     this->reset_state();
 }
 
-
 void NfcReader::check_connection() {
-        uint8_t uid[] = {0, 0, 0, 0, 0, 0, 0};
-        uint8_t uidLength;
-        this->connected = this->nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, &uid[0], &uidLength, 20, true);
+    uint8_t uid[] = {0, 0, 0, 0, 0, 0, 0};
+    uint8_t uidLength;
+    this->connected = this->nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, &uid[0], &uidLength, 20, true);
 }
 
 void NfcReader::select_hce() {
@@ -56,6 +55,10 @@ void NfcReader::reset_state() {
     this->selected = false;
     this->identified = false;
     this->client_collector_active = false;
+    this->collected_queue = {};
+    
+    this->identity = "";
+    host.set_session_id(this->identity);
 }
 
 void NfcReader::stateful_communication() {
@@ -92,7 +95,7 @@ void NfcReader::stateful_communication() {
     this->communicate();
 }
 
-bool NfcCommands::identify(PN532 &nfc) {
+bool NfcCommands::identify(PN532 &nfc, String *value) {
     uint8_t command[] = {CLA_PROPRIETARY, INS_IDENTIFY, P_NULL, P_NULL, LE_ID_LENGTH};
 
     uint8_t response[255];
@@ -106,7 +109,10 @@ bool NfcCommands::identify(PN532 &nfc) {
     char deviceID[7];
     memcpy(deviceID, response, 6);
     deviceID[6] = '\0';
+
+    *value = String(deviceID);
     Serial.println(deviceID);
+
     return true;
 }
 
@@ -182,8 +188,11 @@ bool NfcCommands::stop_client_collector(PN532 &nfc) {
 }
 
 void NfcReader::communicate() {
-    if (!this->identified)
-        this->identified = this->connected = NfcCommands::identify(this->nfc);
+    if (!this->identified) {
+        this->identified = this->connected = NfcCommands::identify(this->nfc, &this->identity);
+        if (this->identified)
+            host.set_session_id(this->identity);
+    }
 
     if (!(this->connected && this->identified))
         return;
@@ -205,14 +214,33 @@ void NfcReader::communicate() {
         collect_data = false;
         this->connected = NfcCommands::collect(this->nfc, &collect_data, data, &data_length);
 
-        if (!this->connected)
-            continue;
-
         if (data_length > 0) {
+            String combined = "";
+            String segment = "";
+
+            // replace \0 delimitter with |, while also removing all | from the data itself
             for (uint8_t i = 0; i < data_length; i++) {
-                Serial.print((char)data[i]);
+                if (data[i] == '\0') {
+                    segment.replace("|", "");
+                    if (combined.length() > 0)
+                        combined += "|";
+                    combined += segment;
+                    segment = "";
+                } else {
+                    segment += (char)data[i];
+                }
             }
-            Serial.println();
+
+            // for the last completed segment (where it doesnt find a \0)
+            if (segment.length() > 0) {
+                segment.replace("|", "");
+                if (combined.length() > 0)
+                    combined += "|";
+                combined += segment;
+            }
+
+            this->collected_queue.push(combined);
+            Serial.println(combined);
         }
     }
 }

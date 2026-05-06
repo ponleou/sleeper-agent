@@ -21,6 +21,10 @@ void BleHost::initialise() {
     BLE.advertise();
 }
 
+void BleHost::set_session_id(String id) {
+    this->session_id.writeValue(id);
+}
+
 bool BleHost::read_action_helper(BLEBoolCharacteristic action, bool *value) {
     if (action.written()) {
         *value = action.value();
@@ -46,11 +50,11 @@ bool BleHost::read_action_char(BleHost::Action action, bool *value) {
 }
 
 bool BleHost::enqueue_data(queue<String> &queue) {
-    if (data_enqueue.written() && !queue.empty()) {
+    if (this->data_enqueue.written() && !queue.empty()) {
         String val = queue.front();
         if (val.length() > 512)
             val = val.substring(0, 512);
-        data_enqueue.writeValue(val);
+        this->data_enqueue.writeValue(val);
         queue.pop();
         return true;
     }

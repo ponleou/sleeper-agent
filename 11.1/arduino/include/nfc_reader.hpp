@@ -3,6 +3,9 @@
 
 #include <PN532.h>
 #include <PN532_HSU.h>
+#include <queue>
+#include "ble_host.hpp"
+using std::queue;
 
 #ifndef PN532_HSU_IMPLEMENTATION
 #define PN532_HSU_IMPLEMENTATION 0
@@ -42,12 +45,16 @@ class NfcReader {
   private:
     PN532_HSU pn532hsu;
     PN532 nfc;
+    BleHost &host;
+
     bool connected;
     bool selected;
     bool identified;
     bool client_collector_active;
 
     unsigned long last_communication_ms;
+    String identity;
+    queue<String> collected_queue;
 
     void check_connection();
     void select_hce();
@@ -57,7 +64,7 @@ class NfcReader {
   public:
     uint32_t version_data;
 
-    NfcReader(HardwareSerial &serial);
+    NfcReader(HardwareSerial &serial, BleHost &host);
 
     bool initialise();
     void stateful_communication();
@@ -65,7 +72,7 @@ class NfcReader {
 
 class NfcCommands {
   protected:
-    static bool identify(PN532 &nfc);
+    static bool identify(PN532 &nfc, String *value);
     static bool poll (PN532 &nfc, bool *initiate_collect);
     static bool collect(PN532 &nfc, bool *initiate_collect, uint8_t data[], uint8_t *data_length);
     static bool start_client_collector(PN532 &nfc);

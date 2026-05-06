@@ -1,3 +1,4 @@
+#pragma once
 #include <ArduinoBLE.h>
 #include <queue>
 using std::queue;
@@ -32,6 +33,7 @@ class BleHost {
 
     BleHost();
     void initialise();
+    void set_session_id(String id);
     bool read_action_char(BleHost::Action action, bool *value);
     bool enqueue_data(queue<String> &queue);
 };
