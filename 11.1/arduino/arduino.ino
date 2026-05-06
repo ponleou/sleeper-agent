@@ -4,6 +4,7 @@
 
 #define PN532_HSU_IMPLEMENTATION 1
 #include "include/nfc_reader.hpp"
+#include "include/ble_host.hpp"
 
 NfcReader nfc(Serial1);
 
