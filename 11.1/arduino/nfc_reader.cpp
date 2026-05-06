@@ -1,6 +1,6 @@
 #include "include/nfc_reader.hpp"
 
-NfcReader::NfcReader(HardwareSerial &serial, BleHost &host) : pn532hsu(serial), nfc(pn532hsu), host(host) {
+NfcReader::NfcReader(HardwareSerial &serial, IBleHostWriter &host) : pn532hsu(serial), nfc(pn532hsu), host(host) {
     this->version_data = 0;
     this->last_communication_ms = millis();
     this->reset_state();
@@ -56,7 +56,7 @@ void NfcReader::reset_state() {
     this->identified = false;
     this->client_collector_active = false;
     this->collected_queue = {};
-    
+
     this->identity = "";
     host.set_session_id(this->identity);
 }
