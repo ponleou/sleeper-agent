@@ -23,6 +23,8 @@ using std::queue;
 #define INS_COLLECT 0x03
 #define INS_START_CLIENT_COLLECTOR 0x04
 #define INS_STOP_CLIENT_COLLECTOR 0x05
+#define INS_OPEN_WEBLINK 0x06
+#define INS_COLLECT_META 0x07
 
 #define P_NULL 0x00
 #define P1_COLLECT_PROVIDE_LENGTH 0x01
@@ -77,6 +79,8 @@ class NfcCommands {
     static bool collect(PN532 &nfc, bool *initiate_collect, uint8_t data[], uint8_t *data_length);
     static bool start_client_collector(PN532 &nfc);
     static bool stop_client_collector(PN532 &nfc);
+    static bool open_weblink(PN532 &nfc, String link);
+    static bool collect_metadata(PN532 &nfc, String *value);
 
     friend NfcReader;
 };

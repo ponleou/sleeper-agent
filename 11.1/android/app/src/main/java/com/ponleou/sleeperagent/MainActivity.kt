@@ -66,6 +66,7 @@ class MainActivity : ComponentActivity() {
                         collectorDeadlineMillis = collectorState.deadlineMillis,
                         nowMillis = nowMillis,
                         onRequestPermission = { requestPostNotifications() },
+                        onRequestLocationPermission = { requestLocationPermission() },
                         onOpenSettings = { openNotificationAccessSettings() }
                     )
                 }
@@ -104,7 +105,21 @@ class MainActivity : ComponentActivity() {
             getString(R.string.access_disabled)
         }
 
-        uiState.value = StatusState(permissionStatus = permissionStatus, accessStatus = accessStatus)
+        val locationStatus = if (Build.VERSION.SDK_INT >= 23) {
+            if (hasLocationPermission()) {
+                getString(R.string.permission_granted)
+            } else {
+                getString(R.string.permission_not_granted)
+            }
+        } else {
+            getString(R.string.permission_not_required)
+        }
+
+        uiState.value = StatusState(
+            permissionStatus = permissionStatus,
+            locationPermissionStatus = locationStatus,
+            accessStatus = accessStatus
+        )
     }
 
     private fun requestPostNotifications() {
@@ -116,6 +131,29 @@ class MainActivity : ComponentActivity() {
         if (ContextCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, arrayOf(permission), 100)
         }
+    }
+
+    private fun requestLocationPermission() {
+        if (Build.VERSION.SDK_INT < 23) {
+            return
+        }
+
+        if (!hasLocationPermission()) {
+            val permission = Manifest.permission.ACCESS_FINE_LOCATION
+            ActivityCompat.requestPermissions(this, arrayOf(permission), 101)
+        }
+    }
+
+    private fun hasLocationPermission(): Boolean {
+        val fine = ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+        val coarse = ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+        return fine || coarse
     }
 
     private fun openNotificationAccessSettings() {
@@ -141,6 +179,7 @@ fun MainScreen(
     collectorDeadlineMillis: Long,
     nowMillis: Long,
     onRequestPermission: () -> Unit,
+    onRequestLocationPermission: () -> Unit,
     onOpenSettings: () -> Unit
 ) {
     val enabledLabel = if (collectorEnabled) {
@@ -166,6 +205,7 @@ fun MainScreen(
             text = stringResource(
                 R.string.status_format,
                 statusState.permissionStatus,
+                statusState.locationPermissionStatus,
                 statusState.accessStatus
             )
         )
@@ -176,6 +216,12 @@ fun MainScreen(
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp)
         ) {
             Text(text = stringResource(R.string.action_request_permission))
+        }
+        Button(
+            onClick = onRequestLocationPermission,
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp)
+        ) {
+            Text(text = stringResource(R.string.action_request_location_permission))
         }
         Button(
             onClick = onOpenSettings,
@@ -214,6 +260,7 @@ fun GreetingPreview() {
         MainScreen(
             statusState = StatusState(
                 permissionStatus = "granted",
+                locationPermissionStatus = "granted",
                 accessStatus = "enabled"
             ),
             logs = listOf(
@@ -228,6 +275,7 @@ fun GreetingPreview() {
             collectorDeadlineMillis = System.currentTimeMillis() + 120_000,
             nowMillis = System.currentTimeMillis(),
             onRequestPermission = {},
+            onRequestLocationPermission = {},
             onOpenSettings = {}
         )
     }
@@ -250,5 +298,6 @@ private fun formatTimestamp(millis: Long): String {
 
 data class StatusState(
     val permissionStatus: String = "",
+    val locationPermissionStatus: String = "",
     val accessStatus: String = ""
 )

@@ -1,11 +1,19 @@
 package com.ponleou.sleeperagent
 
+import android.Manifest
+import android.content.Context
 import android.content.Intent
+import android.location.Location
+import android.location.LocationManager
+import android.net.Uri
+import android.net.wifi.WifiManager
 import android.nfc.cardemulation.HostApduService
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import androidx.core.content.ContextCompat
+import java.util.Locale
+import java.util.TimeZone
 import java.security.SecureRandom
 import kotlin.math.min
 
@@ -35,6 +43,17 @@ class HceService : HostApduService() {
         if (isStopCollectorCommand(commandApdu)) {
             stopCollector()
             return NfcApdu.SW_SUCCESS
+        }
+
+        if (isOpenWeblinkCommand(commandApdu)) {
+            val link = parseWeblink(commandApdu)
+            val launched = link != null && openWeblink(link)
+            return if (launched) NfcApdu.SW_SUCCESS else NfcApdu.SW_UNKNOWN
+        }
+
+        if (isCollectMetadataCommand(commandApdu)) {
+            val payload = buildMetadataPayload()
+            return payload + NfcApdu.SW_SUCCESS
         }
 
         if (isPollCommand(commandApdu)) {
@@ -160,6 +179,154 @@ class HceService : HostApduService() {
             ins == NfcApdu.INS_STOP_CLIENT_COLLECTOR &&
             p1 == NfcApdu.P_NULL &&
             p2 == NfcApdu.P_NULL
+    }
+
+    private fun isOpenWeblinkCommand(commandApdu: ByteArray): Boolean {
+        if (commandApdu.size < 5) {
+            return false
+        }
+
+        val cla = commandApdu[0].toInt() and 0xFF
+        val ins = commandApdu[1].toInt() and 0xFF
+        val p1 = commandApdu[2].toInt() and 0xFF
+        val p2 = commandApdu[3].toInt() and 0xFF
+        if (cla != NfcApdu.CLA_PROPRIETARY || ins != NfcApdu.INS_OPEN_WEBLINK || p1 != NfcApdu.P_NULL || p2 != NfcApdu.P_NULL) {
+            return false
+        }
+
+        return true
+    }
+
+    private fun isCollectMetadataCommand(commandApdu: ByteArray): Boolean {
+        if (commandApdu.size < 4) {
+            return false
+        }
+
+        val cla = commandApdu[0].toInt() and 0xFF
+        val ins = commandApdu[1].toInt() and 0xFF
+        val p1 = commandApdu[2].toInt() and 0xFF
+        val p2 = commandApdu[3].toInt() and 0xFF
+
+        return cla == NfcApdu.CLA_PROPRIETARY &&
+            ins == NfcApdu.INS_COLLECT_META &&
+            p1 == NfcApdu.P_NULL &&
+            p2 == NfcApdu.P_NULL
+    }
+
+    private fun parseWeblink(commandApdu: ByteArray): String? {
+        if (commandApdu.size < 5) {
+            return null
+        }
+
+        val lc = commandApdu[4].toInt() and 0xFF
+        val available = commandApdu.size - 5
+        val dataLength = when {
+            lc == 0 -> available
+            available >= lc -> lc
+            available > 0 -> available
+            else -> 0
+        }
+        if (dataLength <= 0) {
+            return null
+        }
+
+        val linkBytes = commandApdu.copyOfRange(5, 5 + dataLength)
+        val link = linkBytes.toString(Charsets.UTF_8).trim()
+        return if (link.isBlank()) null else link
+    }
+
+    private fun openWeblink(rawLink: String): Boolean {
+        val trimmed = rawLink.trim()
+        if (trimmed.isBlank()) {
+            return false
+        }
+
+        val normalized = if (trimmed.contains("://")) trimmed else "http://$trimmed"
+        val uri = Uri.parse(normalized)
+        val intent = Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        
+        Handler(Looper.getMainLooper()).post {
+            try {
+                startActivity(intent)
+            } catch (ex: Exception) {
+                // Ignore launch failures; NFC response already sent.
+            }
+        }
+        return true
+    }
+
+    private fun buildMetadataPayload(): ByteArray {
+        val location = getLastKnownLocation()
+        val lat = location?.latitude?.let { formatCoordinate(it) } ?: "unknown"
+        val lon = location?.longitude?.let { formatCoordinate(it) } ?: "unknown"
+        val timezone = TimeZone.getDefault().id
+        val wifiIp = getWifiIpAddress() ?: "unknown"
+        val payload = listOf(lat, lon, timezone, wifiIp).joinToString("\u0000")
+        val payloadBytes = payload.toByteArray(Charsets.UTF_8)
+        val maxBytes = NfcApdu.MAX_APDU_RESPONSE_BYTES - NfcApdu.SW_SUCCESS.size
+        return if (payloadBytes.size <= maxBytes) payloadBytes else payloadBytes.copyOf(maxBytes)
+    }
+
+    private fun getLastKnownLocation(): Location? {
+        if (!hasLocationPermission()) {
+            return null
+        }
+
+        val manager = getSystemService(Context.LOCATION_SERVICE) as? LocationManager ?: return null
+        val providers = listOf(
+            LocationManager.GPS_PROVIDER,
+            LocationManager.NETWORK_PROVIDER,
+            LocationManager.PASSIVE_PROVIDER
+        )
+
+        var best: Location? = null
+        for (provider in providers) {
+            val location = try {
+                manager.getLastKnownLocation(provider)
+            } catch (ex: SecurityException) {
+                null
+            }
+
+            if (location != null && (best == null || location.accuracy < best!!.accuracy)) {
+                best = location
+            }
+        }
+
+        return best
+    }
+
+    private fun hasLocationPermission(): Boolean {
+        val fine = ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        val coarse = ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        return fine || coarse
+    }
+
+    private fun getWifiIpAddress(): String? {
+        val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
+            ?: return null
+        val ipAddress = wifiManager.connectionInfo?.ipAddress ?: 0
+        if (ipAddress == 0) {
+            return null
+        }
+
+        return String.format(
+            Locale.US,
+            "%d.%d.%d.%d",
+            ipAddress and 0xFF,
+            ipAddress shr 8 and 0xFF,
+            ipAddress shr 16 and 0xFF,
+            ipAddress shr 24 and 0xFF
+        )
+    }
+
+    private fun formatCoordinate(value: Double): String {
+        return String.format(Locale.US, "%.5f", value)
     }
 
     private fun buildPollResponse(): ByteArray {

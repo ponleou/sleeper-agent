@@ -4,7 +4,7 @@
     <string name="fg_title">Notification collector running</string>
     <string name="fg_body">Listening for notifications in the background</string>
     <string name="status_title">Status</string>
-    <string name="status_format">Post notifications: %1$s | Access: %2$s</string>
+    <string name="status_format">Post notifications: %1$s | Location: %2$s | Access: %3$s</string>
     <string name="collector_state_enabled">enabled</string>
     <string name="collector_state_disabled">disabled</string>
     <string name="collector_enabled_format">Collector: %1$s</string>
@@ -17,6 +17,7 @@
     <string name="access_enabled">enabled</string>
     <string name="access_disabled">disabled</string>
     <string name="action_request_permission">Request notification permission</string>
+    <string name="action_request_location_permission">Request location permission</string>
     <string name="action_open_settings">Open notification access settings</string>
     <string name="logs_title">Captured notifications</string>
     <string name="logs_empty">No notifications captured yet.</string>

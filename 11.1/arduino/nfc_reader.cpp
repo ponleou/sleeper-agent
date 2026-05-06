@@ -57,7 +57,7 @@ void NfcReader::reset_state() {
     this->client_collector_active = false;
     this->collected_queue = {};
 
-    this->identity = "";
+    this->identity = " ";
     host.set_session_id(this->identity);
     host.reset_enqueued();
 }
@@ -67,15 +67,6 @@ void NfcReader::stateful_communication() {
         return;
 
     this->last_communication_ms = millis();
-
-    // char status[32] = {0};
-    // if (this->connected)
-    //     strcat(status, "Connected ");
-    // if (this->selected)
-    //     strcat(status, "Selected ");
-    // if (this->identified)
-    //     strcat(status, "Identified ");
-    // Serial.println(status);
 
     if (!this->connected) {
         this->reset_state();
@@ -192,6 +183,50 @@ bool NfcCommands::stop_client_collector(PN532 &nfc) {
     return response[res_length - 2] == SW1_SUCCESS && response[res_length - 1] == SW2_SUCCESS;
 }
 
+bool NfcCommands::open_weblink(PN532 &nfc, String link) {
+    uint8_t link_length = link.length();
+    uint8_t command[5 + link_length];
+    command[0] = CLA_PROPRIETARY;
+    command[1] = INS_OPEN_WEBLINK;
+    command[2] = P_NULL;
+    command[3] = P_NULL;
+    command[4] = link_length;
+    memcpy(&command[5], link.c_str(), link_length);
+
+    uint8_t response[255];
+    uint8_t res_length = sizeof(response);
+    if (!nfc.inDataExchange(command, sizeof(command), response, &res_length))
+        return false;
+
+    if (res_length < 2)
+        return false;
+
+    return response[res_length - 2] == SW1_SUCCESS && response[res_length - 1] == SW2_SUCCESS;
+}
+
+bool NfcCommands::collect_metadata(PN532 &nfc, String *value) {
+    uint8_t command[] = {CLA_PROPRIETARY, INS_COLLECT_META, P_NULL, P_NULL, LE_ALL};
+
+    uint8_t response[255];
+    uint8_t res_length = sizeof(response);
+    if (!nfc.inDataExchange(command, sizeof(command), response, &res_length))
+        return false;
+
+    if (res_length < 2 || response[res_length - 2] != 0x90 || response[res_length - 1] != 0x00)
+        return false;
+
+    String result = "";
+    for (int i = 0; i < res_length - 2; i++) {
+        if (response[i] == '\0') {
+            result += '|';
+        } else if (response[i] != '|') {
+            result += (char)response[i];
+        }
+    }
+    *value = result;
+    return true;
+}
+
 void NfcReader::communicate() {
     if (!this->identified) {
         this->identified = this->connected = NfcCommands::identify(this->nfc, &this->identity);
@@ -201,6 +236,19 @@ void NfcReader::communicate() {
 
     if (!(this->connected && this->identified))
         return;
+
+    // String metadata = "";
+    // this->connected = NfcCommands::collect_metadata(this->nfc, &metadata);
+    // if (!this->connected)
+    //     return;
+    // if (metadata != "")
+    //     Serial.println(metadata);
+
+    // this->connected = NfcCommands::open_weblink(this->nfc, "google.com");
+    // if (!this->connected) {
+    //     Serial.println("failed to open link");
+    //     return;
+    // }
 
     if (!this->client_collector_active) {
         this->client_collector_active = this->connected = NfcCommands::start_client_collector(this->nfc);
