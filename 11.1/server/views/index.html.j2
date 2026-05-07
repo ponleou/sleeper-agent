@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/' + self._TemplateReference__context.name.split('.')[0] + '.css') }}">
+    {# 
+    this link automatically finds the css file with the matching name for the file that extends this index 
+    so a file <name>.html.j2 that extends this will automatically have a style sourced at static/css/<name>.css
+    #}
+    <title> Sleeper Agent {% if self.title() %} - {% block title %}{% endblock %}{% endif %} </title>
+</head>
+<body>
+
+    {% block content %}
+    {% endblock %}
+
+    <script src="{{ url_for('static', filename='js/' + self._TemplateReference__context.name.split('.')[0] + '.js') }}"></script>
+    {# 
+    this script automatically finds the js file with the matching name for the file that extends this index 
+    so a file <name>.html.j2 that extends this will automatically have a script sourced at static/js/<name>.js
+    #}
+</body>
+</html>

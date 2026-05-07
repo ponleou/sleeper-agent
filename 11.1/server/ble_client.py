@@ -68,7 +68,7 @@ class BleInterface:
                 session.commit()
                 return False
 
-            return bool(session_record.registered)
+            return session_record.registered
 
     async def store_session_metadata(self, session_id: str) -> tuple[str, str, str]:
         if not self._client:
@@ -136,10 +136,10 @@ class BleInterface:
                         longs, lats = result[0][0]
                         long = str(sum(longs) / len(longs))
                         lat = str(sum(lats) / len(lats))
-                        session_meta.location = f"{lat},{long}" # pyright: ignore[reportAttributeAccessIssue]
+                        session_meta.location = f"{lat},{long}"
 
-                    session_meta.timezone = timezone    # pyright: ignore[reportAttributeAccessIssue]
-                    session_meta.local_ip = local_ip    # pyright: ignore[reportAttributeAccessIssue]
+                    session_meta.timezone = timezone  
+                    session_meta.local_ip = local_ip 
                     session.add(session_meta)
                     session.commit()
 
@@ -156,9 +156,9 @@ class BleInterface:
                     )
                     session.commit()
                 else:
-                    session_meta.location = f"{lat},{long}" # pyright: ignore[reportAttributeAccessIssue]
-                    session_meta.timezone = timezone    # pyright: ignore[reportAttributeAccessIssue]
-                    session_meta.local_ip = local_ip    # pyright: ignore[reportAttributeAccessIssue]
+                    session_meta.location = f"{lat},{long}" 
+                    session_meta.timezone = timezone  
+                    session_meta.local_ip = local_ip  
                     session.add(session_meta)
                     session.commit()
             
@@ -261,7 +261,7 @@ async def main() -> None:
 
             # only provide the weblink (to the register web interface) if not registered
             if not id_is_registered:
-                await interface.provide_weblink(get_routing_table_ip(ip)) 
+                await interface.provide_weblink(f"{get_routing_table_ip(ip)}:5000/register?id={id}") 
             
 
         if not id_is_registered:

@@ -1,0 +1,25 @@
+{% extends "index.html.j2" %}
+
+{% block content %}
+<div class="container">
+    {% if id %}
+    <form action="{{ url_for('api.register') }}" method="POST">
+        <div class="field_group">
+            <label for="appname">Priority Notification</label>
+            <div class="priority_fields">
+                <input type="text" id="appname" name="appname" placeholder="App Name" />
+                <input type="text" id="title" name="title" placeholder="Title" />
+            </div>
+        </div>
+        <div class="field_group">
+            <label for="bedtime">Bedtime</label>
+            <input type="time" id="bedtime" name="bedtime" required/>
+        </div>
+        <input type="hidden" name="id" value="{{ id }}" />
+        <button type="submit">Submit</button>
+    </form>
+    {% else %}
+    <p class="warning_text">No ID for this session found.</p>
+    {% endif %}
+</div>
+{% endblock %}

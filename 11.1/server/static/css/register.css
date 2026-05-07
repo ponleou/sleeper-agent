@@ -1,0 +1,38 @@
+.container {
+    max-width: 1024px;
+    margin: 0 auto;
+}
+
+.priority_fields {
+    display: inline-flex; 
+    gap: 12px;
+    
+}
+
+form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    justify-content: center;
+
+}
+
+.field_group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: start;
+}
+
+button {
+    align-self: start;
+    padding: 2px 6px;
+}
+
+input {
+    padding: 2px 6px;
+}
+
+.warning_text {
+    text-align: center;
+}
