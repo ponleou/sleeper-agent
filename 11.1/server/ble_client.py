@@ -189,6 +189,28 @@ class BleInterface:
             raise BleakError("Connection lost")
 
         await self._client.write_gatt_char(BLE_START_CHAR_UUID, b"\x00")
+    
+    async def start_alert(self) -> None:
+        if not self._client:
+            print("ERROR: Client is not created")
+            raise BleakDeviceNotFoundError(BLE_SERVICE_UUID)
+
+        if not self._client.is_connected:
+            print("WARN: Read/write attempt with BLE device failed")
+            raise BleakError("Connection lost")
+
+        await self._client.write_gatt_char(BLE_ALERT_CHAR_UUID, b"\x01")
+
+    async def stop_alert(self) -> None:
+        if not self._client:
+            print("ERROR: Client is not created")
+            raise BleakDeviceNotFoundError(BLE_SERVICE_UUID)
+
+        if not self._client.is_connected:
+            print("WARN: Read/write attempt with BLE device failed")
+            raise BleakError("Connection lost")
+
+        await self._client.write_gatt_char(BLE_ALERT_CHAR_UUID, b"\x00")
 
     async def store_dequeue(self, session_id: str) -> None:
         if not self._client:
@@ -230,6 +252,14 @@ class BleInterface:
 
 ############# DATABASE FUNCTIONS #############
 
+def get_newest_session_id() -> str:
+    with Session(engine) as session:
+        record = session.query(SessionRecord).order_by(SessionRecord.created_at.desc()).first()
+
+        if not record:
+            return " "
+        
+        return record.session_id
 
 def is_registered(session_id: str) -> bool:
     with Session(engine) as session:
@@ -243,6 +273,7 @@ def is_registered(session_id: str) -> bool:
             return False
 
         return session_record.registered
+
 
 
 def get_bedtime(session_id: str) -> time | None:
@@ -317,45 +348,117 @@ def check_to_end(current: time, start: time, end: time) -> bool:
     
     return current_dt >= end_dt
 
+def check_to_start(current: time, start: time, end: time) -> bool:
+    # assume it means end is the day before, and start is the day after
+    if end < start:
+        return current > start or current < end
+    
+    # assume end and start is on the same day
+    else:
+        return current > start and current < end
+
 #######################################
 
 # states per identified session
 ran_per_identify = False
 id_is_registered = False
-to_start: bool = False
 start_time: time | None = None
 end_time: time | None = None
 
+# states for without identification
+saved_bedtime: time | None = None
+expected_endtime: time | None = None
+
+# globally managed state (no resets)
+# it is managed across different states in the whileloop
 
 def reset_session_state():
-    global ran_per_identify, id_is_registered, to_start, end_time, start_time
+    global ran_per_identify, id_is_registered, end_time, start_time
     ran_per_identify = False
     id_is_registered = False
-    to_start = False
     start_time = None
     end_time = None
 
 
+def reset_no_session_state():
+    global saved_bedtime, expected_endtime
+    saved_bedtime = None
+    expected_endtime = None
+
 async def main() -> None:
-    global ran_per_identify, id_is_registered, to_start, end_time, start_time
+    global ran_per_identify, id_is_registered, end_time, start_time, saved_bedtime, expected_endtime
     interface = await BleInterface().create()
+
+    to_start: bool = False
 
     print("connected")
 
     while True:
-        await asyncio.sleep(0.2)
+        await asyncio.sleep(0.2)  # FIXME: increase time
 
         id = await interface.get_identity()
         if id == " ":
             reset_session_state()
-
-
-        # no id detected, or already set to not start
-        if id == " " or (start_time != None and to_start == False):
-            pass
-
         else:
-            print(id)
+            reset_no_session_state()
+
+
+        # no id detected, but it should really be here cus its time
+        if id == " " and to_start:
+            print("alert")
+
+            id = get_newest_session_id()
+
+            current = get_current_time(get_timezone(id))
+
+            if not saved_bedtime or not expected_endtime:
+                saved_bedtime = get_bedtime(id)
+                expected_endtime = get_risingtime(id)
+
+            if saved_bedtime == None:
+                raise ValueError(f"UNEXPECTED: {id} here must be registered and have a bedtime, this is not allowed")
+
+            to_start = check_to_start(current, saved_bedtime, expected_endtime)
+
+            await interface.start_alert()
+
+        # not yet time to start
+        # we poll to check when to start
+        elif not to_start:
+
+            # stop alert, there shouldnt be any here
+            await interface.stop_alert()
+
+            id = get_newest_session_id()
+
+            if id == " " or not is_registered(id):
+                continue
+
+            print("no session:", id)
+
+            current = get_current_time(get_timezone(id))
+
+            if not saved_bedtime or not expected_endtime:
+                saved_bedtime = get_bedtime(id)
+                expected_endtime = get_risingtime(id)
+
+            if saved_bedtime == None:
+                raise ValueError(f"UNEXPECTED: {id} is registered but has no bedtime, this is not allowed")
+
+            to_start = check_to_start(current, saved_bedtime, expected_endtime)
+            print("start or nah", to_start)
+
+            if not to_start:
+                await asyncio.sleep(1) # FIXME: increase time
+        
+        # to start and there is id
+        else:
+            print("session:", id)
+            
+            # stop alert, there shouldnt be any here
+            await interface.stop_alert()
+
+            current = get_current_time(get_timezone(id))
 
             # only runs once per identified session id
             if not ran_per_identify:
@@ -373,9 +476,6 @@ async def main() -> None:
             if not id_is_registered:
                 continue
         
-            current = get_current_time(get_timezone(id))
-            
-
             # if to_start is not checked, then check
             if start_time == None:
                 bedtime = get_bedtime(id)
@@ -384,12 +484,14 @@ async def main() -> None:
                     to_start = current >= bedtime
 
                 if to_start:
-                    print("starting")
                     start_time = current
+                    print("starting:", start_time)
                     await interface.set_start()
 
-            # start_time is never None if to_start is true
+            # start_time is never None if to_start is true here (ONLY HERE)
             if to_start and start_time:
+
+                # using rising time to get end time only once (initial endtime)
                 if end_time == None:
                     end_time = get_risingtime(id) 
 
@@ -400,6 +502,10 @@ async def main() -> None:
                     await interface.set_stop()
                     to_start = False
                     print("stopping")
+
+                if to_start:
+                    await asyncio.sleep(1) # FIXME: increase time
+                    
 
 
 if __name__ == "__main__":
