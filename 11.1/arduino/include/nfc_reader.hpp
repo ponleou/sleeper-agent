@@ -58,6 +58,9 @@ class NfcReader {
     String identity;
     queue<String> collected_queue;
 
+    bool metadata_collected;
+    bool weblink_provided;
+
     void check_connection();
     void select_hce();
     void communicate();

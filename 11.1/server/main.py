@@ -2,13 +2,13 @@ from datetime import datetime
 import asyncio
 from bleak import BleakScanner, BleakClient
 from bleak.exc import BleakDeviceNotFoundError, BleakError, BleakGATTProtocolError
-
+import socket
 from models import engine, SessionRecord, NotificationData, SessionMeta
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 from timezonefinder import TimezoneFinder
+from typing import cast
 
-# BLUETOOTH_ADDRESS = "94:B5:55:C0:60:32"
 BLE_SERVICE_UUID = "00000100-addd-43a2-b9cc-6c8adc8a7761"
 BLE_SESSION_CHAR_UUID = "00000101-addd-43a2-b9cc-6c8adc8a7761"
 BLE_ENQUEUE_CHAR_UUID = "00000110-addd-43a2-b9cc-6c8adc8a7761"
@@ -17,6 +17,7 @@ BLE_STOP_CHAR_UUID = "00000130-addd-43a2-b9cc-6c8adc8a7761"
 BLE_ALERT_CHAR_UUID = "00000140-addd-43a2-b9cc-6c8adc8a7761"
 BLE_WEBLINK_CHAR_UUID = "00000150-addd-43a2-b9cc-6c8adc8a7761"
 BLE_METADATA_CHAR_UUID = "00000160-addd-43a2-b9cc-6c8adc8a7761"
+
 
 class BleInterface:
     _client: BleakClient | None
@@ -55,14 +56,13 @@ class BleInterface:
         session_id = session_id_bytes.decode("utf-8")
 
         return session_id
-    
 
     async def is_registered(self, session_id: str) -> bool:
         with Session(engine) as session:
             session_record = session.execute(
                 select(SessionRecord).where(SessionRecord.session_id == session_id)
             ).scalar_one_or_none()
-            
+
             if not session_record:
                 session.add(SessionRecord(session_id=session_id))
                 session.commit()
@@ -70,8 +70,7 @@ class BleInterface:
 
             return bool(session_record.registered)
 
-
-    async def get_session_metadata(self, session_id: str) -> None:
+    async def store_session_metadata(self, session_id: str) -> tuple[str, str, str]:
         if not self._client:
             print("ERROR: Client is not created")
             raise BleakDeviceNotFoundError(BLE_SERVICE_UUID)
@@ -84,8 +83,7 @@ class BleInterface:
         value = data.decode("utf-8")
         print(value)
         if value == " ":
-            return
-        
+            return ("", "", "")
 
         parts = value.split("|")
 
@@ -102,10 +100,12 @@ class BleInterface:
 
         tf = TimezoneFinder()
         with Session(engine) as session:
-            session_meta = session.execute(select(SessionMeta).where(SessionMeta.session_id == session_id)).scalar_one_or_none()
+            session_meta = session.execute(
+                select(SessionMeta).where(SessionMeta.session_id == session_id)
+            ).scalar_one_or_none()
 
             # if location data is unavailable
-            if (lat == "unknown" or long == "unknown"):
+            if lat == "unknown" or long == "unknown":
                 # if session metadata doesnt exist yet, make a new with with whatever we have
                 if not session_meta:
                     result = tf.get_geometry(tz_name=timezone)
@@ -113,7 +113,14 @@ class BleInterface:
                     long = str(sum(longs) / len(longs))
                     lat = str(sum(lats) / len(lats))
 
-                    session.add(SessionMeta(session_id = session_id, location=f"{lat},{long}", timezone=timezone, local_ip=local_ip))
+                    session.add(
+                        SessionMeta(
+                            session_id=session_id,
+                            location=f"{lat},{long}",
+                            timezone=timezone,
+                            local_ip=local_ip,
+                        )
+                    )
                     session.commit()
 
                 # if metadata entry already exists, only update lat and long if it doesnt match with the received timezone
@@ -121,35 +128,58 @@ class BleInterface:
                 else:
                     coords = str(session_meta.location).split(",")
                     lat = coords[0]
-                    long = coords [1]
+                    long = coords[1]
 
-                    tz = tf.timezone_at(lat=float(lat) ,lng=float(long))
-                    if (tz != timezone):
+                    tz = tf.timezone_at(lat=float(lat), lng=float(long))
+                    if tz != timezone:
                         result = tf.get_geometry(tz_name=timezone)
                         longs, lats = result[0][0]
                         long = str(sum(longs) / len(longs))
                         lat = str(sum(lats) / len(lats))
-                        session_meta.location = f"{lat},{long}";  # pyright: ignore[reportAttributeAccessIssue]
-                    
-                    session_meta.timezone = timezone;   # pyright: ignore[reportAttributeAccessIssue]
-                    session_meta.local_ip = local_ip;  # pyright: ignore[reportAttributeAccessIssue]
+                        session_meta.location = f"{lat},{long}" # pyright: ignore[reportAttributeAccessIssue]
+
+                    session_meta.timezone = timezone    # pyright: ignore[reportAttributeAccessIssue]
+                    session_meta.local_ip = local_ip    # pyright: ignore[reportAttributeAccessIssue]
                     session.add(session_meta)
                     session.commit()
 
             # if we do have the lat long data, either add it if entry doesnt exist, or update it
             else:
                 if not session_meta:
-                    session.add(SessionMeta(session_id = session_id, location=f"{lat},{long}", timezone=timezone, local_ip=local_ip))
+                    session.add(
+                        SessionMeta(
+                            session_id=session_id,
+                            location=f"{lat},{long}",
+                            timezone=timezone,
+                            local_ip=local_ip,
+                        )
+                    )
                     session.commit()
                 else:
-                    session_meta.location = f"{lat},{long}";  # pyright: ignore[reportAttributeAccessIssue]
-                    session_meta.timezone = timezone;   # pyright: ignore[reportAttributeAccessIssue]
-                    session_meta.local_ip = local_ip;   # pyright: ignore[reportAttributeAccessIssue]
+                    session_meta.location = f"{lat},{long}" # pyright: ignore[reportAttributeAccessIssue]
+                    session_meta.timezone = timezone    # pyright: ignore[reportAttributeAccessIssue]
+                    session_meta.local_ip = local_ip    # pyright: ignore[reportAttributeAccessIssue]
                     session.add(session_meta)
                     session.commit()
+            
+        return (f"{lat},{long}", timezone, local_ip)
 
+    async def provide_weblink(self, link: str) -> None:
+        if not self._client:
+            print("ERROR: Client is not created")
+            raise BleakDeviceNotFoundError(BLE_SERVICE_UUID)
 
-    async def dequeue(self, session_id: str) -> None:
+        if not self._client.is_connected:
+            print("WARN: Read/write attempt with BLE device failed")
+            raise BleakError("Connection lost")
+
+        if link == "":
+            link = " "
+        
+        print("provided:", link)
+        await self._client.write_gatt_char(BLE_WEBLINK_CHAR_UUID, link.encode())
+
+    async def store_dequeue(self, session_id: str) -> None:
         if not self._client:
             print("ERROR: Client is not created")
             raise BleakDeviceNotFoundError(BLE_SERVICE_UUID)
@@ -187,27 +217,57 @@ class BleInterface:
             session.commit()
 
 
+def get_routing_table_ip(client_ip: str) -> str:
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.connect((client_ip, 80))
+    ip = cast(tuple[str, int], s.getsockname())[0]
+    s.close()
+    return ip
+
+
+# states per identified session
+ran_per_identify = False
+id_is_registered = False
+
+
+def reset_session_state():
+    global ran_per_identify, id_is_registered
+    ran_per_identify = False
+    id_is_registered = False
+
+
 async def main() -> None:
+    global ran_per_identify, id_is_registered
     interface = await BleInterface().create()
 
     print("connected")
 
     while True:
+        await asyncio.sleep(0.2)
+
         id = await interface.get_identity()
         if id == " ":
+            reset_session_state()
             continue
 
         print(id)
 
-        registered = await interface.is_registered(id);
+        # only runs once per identified session id
+        if not ran_per_identify:
+            ran_per_identify = True
 
-        # if not registered:
-        #     continue
+            id_is_registered = await interface.is_registered(id)
+            _, _, ip = await interface.store_session_metadata(id)
 
-        await interface.get_session_metadata(id);
-        await interface.dequeue(id)
+            # only provide the weblink (to the register web interface) if not registered
+            if not id_is_registered:
+                await interface.provide_weblink(get_routing_table_ip(ip)) 
+            
 
-        await asyncio.sleep(0.2)
+        if not id_is_registered:
+            continue
+
+        await interface.store_dequeue(id)
 
 
 if __name__ == "__main__":

@@ -1,8 +1,8 @@
 #include "include/ble_host.hpp"
 
 BleHost::BleHost()
-    : service(BLE_SERVICE_UUID), session_id(BLE_SESSION_CHAR_UUID, BLERead, 6),
-      data_enqueue(BLE_ENQUEUE_CHAR_UUID, BLERead | BLEWrite | BLENotify, 512),
+    : service(BLE_SERVICE_UUID), session_id(BLE_SESSION_CHAR_UUID, BLERead | BLENotify, 6),
+      data_enqueue(BLE_ENQUEUE_CHAR_UUID, BLERead | BLEWrite, 512),
       start_action(BLE_START_CHAR_UUID, BLEWrite), stop_action(BLE_STOP_CHAR_UUID, BLEWrite),
       alert_action(BLE_ALERT_CHAR_UUID, BLEWrite), weblink(BLE_WEBLINK_CHAR_UUID, BLEWrite, 512), metadata(BLE_METADATA_CHAR_UUID, BLERead, 512){
 }
@@ -24,7 +24,7 @@ void BleHost::initialise() {
     BLE.advertise();
 }
 
-void BleHost::set_session_id(String id) {
+void BleHost::write_session_id(String id) {
     if (id.length() == 0)
         id = " ";
 
@@ -55,7 +55,7 @@ bool BleHost::read_action_char(BleHost::Action action, bool *value) {
     }
 }
 
-bool BleHost::enqueue_data(queue<String> &queue) {
+bool BleHost::write_data_enqueue(queue<String> &queue) {
     if (this->data_enqueue.value() == " " && !queue.empty()) {
         String val = queue.front();
         if (val.length() > 512)
@@ -85,6 +85,25 @@ void BleHost::write_metadata(String metadata) {
     if (metadata == "")
         metadata = " ";
     this->metadata.writeValue(metadata);
+}
+
+void BleHost::reset_weblink() {
+    if (this->weblink.value() != " ")
+        this->weblink.writeValue(" ");
+}
+
+void BleHost::reset_actions() {
+    this->start_action.writeValue(false);
+    this->stop_action.writeValue(false);
+    this->alert_action.writeValue(false);
+}
+
+void BleHost::reset_ble() {
+    this->write_session_id(" ");
+    this->write_metadata(" ");
+    this->reset_enqueued();
+    this->reset_weblink();
+    this->reset_actions();
 }
 
 void BleHost::debug_print() {

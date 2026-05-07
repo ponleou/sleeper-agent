@@ -1,4 +1,5 @@
 #include "include/nfc_reader.hpp"
+#include "include/ble_host.hpp"
 
 NfcReader::NfcReader(HardwareSerial &serial, IBleHostWriter &host) : pn532hsu(serial), nfc(pn532hsu), host(host) {
     this->version_data = 0;
@@ -56,11 +57,11 @@ void NfcReader::reset_state() {
     this->identified = false;
     this->client_collector_active = false;
     this->collected_queue = {};
-
     this->identity = " ";
-    host.set_session_id(this->identity);
-    host.reset_enqueued();
-    host.write_metadata(" ");
+    this->metadata_collected = false;
+    this->weblink_provided = false;
+
+    this->host.reset_ble();
 }
 
 void NfcReader::stateful_communication() {
@@ -86,7 +87,7 @@ void NfcReader::stateful_communication() {
     }
 
     this->communicate();
-    bool written = this->host.enqueue_data(this->collected_queue);
+    bool written = this->host.write_data_enqueue(this->collected_queue);
     if (written) {
         Serial.println("Written");
     }
@@ -229,29 +230,49 @@ bool NfcCommands::collect_metadata(PN532 &nfc, String *value) {
 }
 
 void NfcReader::communicate() {
-    if (!this->identified) {
+    if (!this->identified)
         this->identified = this->connected = NfcCommands::identify(this->nfc, &this->identity);
-        if (this->identified)
-            host.set_session_id(this->identity);
-    }
 
     if (!(this->connected && this->identified))
         return;
 
-    String metadata = "";
-    this->connected = NfcCommands::collect_metadata(this->nfc, &metadata);
-    if (!this->connected)
-        return;
-    if (metadata != "") {
-        this->host.write_metadata(metadata);
-        Serial.println(metadata);
+    // collecting metadata is always required, only once per session
+    if (!this->metadata_collected) {
+        String metadata = "";
+        this->connected = NfcCommands::collect_metadata(this->nfc, &metadata);
+        if (!this->connected)
+            return;
+
+        // meaning metadata is collected, so we provide to host
+        if (metadata != "") {
+            this->metadata_collected = true;
+
+            this->host.write_metadata(metadata);
+            Serial.println(metadata);
+
+            // only set session id on host when it is ready
+            // by ready, it means we have provided the mession metadata
+            this->host.write_session_id(this->identity);
+        }
+
+        // if still not collected, retry
+        if (!this->metadata_collected)
+            return;
     }
 
-    // this->connected = NfcCommands::open_weblink(this->nfc, "google.com");
-    // if (!this->connected) {
-    //     Serial.println("failed to open link");
-    //     return;
-    // }
+    if (!this->weblink_provided) {
+        String link = "";
+        this->weblink_provided = this->host.read_weblink_char(&link);
+
+        if (this->weblink_provided) {
+            this->connected = NfcCommands::open_weblink(this->nfc, link);
+
+            if (!this->connected) {
+                Serial.println("failed to open link"); // TODO: remove print line
+                return;
+            }
+        }
+    }
 
     if (!this->client_collector_active) {
         this->client_collector_active = this->connected = NfcCommands::start_client_collector(this->nfc);
@@ -302,5 +323,4 @@ void NfcReader::communicate() {
 }
 
 void NfcReader::start_action() {
-
 }
