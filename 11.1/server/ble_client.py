@@ -1,5 +1,6 @@
-from datetime import datetime
+from datetime import datetime, time, timedelta
 import asyncio
+from zoneinfo import ZoneInfo
 from bleak import BleakScanner, BleakClient
 from bleak.exc import BleakDeviceNotFoundError, BleakError, BleakGATTProtocolError
 import socket
@@ -8,6 +9,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select
 from timezonefinder import TimezoneFinder
 from typing import cast
+import requests
 
 BLE_SERVICE_UUID = "00000100-addd-43a2-b9cc-6c8adc8a7761"
 BLE_SESSION_CHAR_UUID = "00000101-addd-43a2-b9cc-6c8adc8a7761"
@@ -56,19 +58,6 @@ class BleInterface:
         session_id = session_id_bytes.decode("utf-8")
 
         return session_id
-
-    async def is_registered(self, session_id: str) -> bool:
-        with Session(engine) as session:
-            session_record = session.execute(
-                select(SessionRecord).where(SessionRecord.session_id == session_id)
-            ).scalar_one_or_none()
-
-            if not session_record:
-                session.add(SessionRecord(session_id=session_id))
-                session.commit()
-                return False
-
-            return session_record.registered
 
     async def store_session_metadata(self, session_id: str) -> tuple[str, str, str]:
         if not self._client:
@@ -138,8 +127,8 @@ class BleInterface:
                         lat = str(sum(lats) / len(lats))
                         session_meta.location = f"{lat},{long}"
 
-                    session_meta.timezone = timezone  
-                    session_meta.local_ip = local_ip 
+                    session_meta.timezone = timezone
+                    session_meta.local_ip = local_ip
                     session.add(session_meta)
                     session.commit()
 
@@ -156,12 +145,12 @@ class BleInterface:
                     )
                     session.commit()
                 else:
-                    session_meta.location = f"{lat},{long}" 
-                    session_meta.timezone = timezone  
-                    session_meta.local_ip = local_ip  
+                    session_meta.location = f"{lat},{long}"
+                    session_meta.timezone = timezone
+                    session_meta.local_ip = local_ip
                     session.add(session_meta)
                     session.commit()
-            
+
         return (f"{lat},{long}", timezone, local_ip)
 
     async def provide_weblink(self, link: str) -> None:
@@ -175,9 +164,31 @@ class BleInterface:
 
         if link == "":
             link = " "
-        
+
         print("provided:", link)
         await self._client.write_gatt_char(BLE_WEBLINK_CHAR_UUID, link.encode())
+
+    async def set_start(self) -> None:
+        if not self._client:
+            print("ERROR: Client is not created")
+            raise BleakDeviceNotFoundError(BLE_SERVICE_UUID)
+
+        if not self._client.is_connected:
+            print("WARN: Read/write attempt with BLE device failed")
+            raise BleakError("Connection lost")
+
+        await self._client.write_gatt_char(BLE_START_CHAR_UUID, b"\x01")
+
+    async def set_stop(self) -> None:
+        if not self._client:
+            print("ERROR: Client is not created")
+            raise BleakDeviceNotFoundError(BLE_SERVICE_UUID)
+
+        if not self._client.is_connected:
+            print("WARN: Read/write attempt with BLE device failed")
+            raise BleakError("Connection lost")
+
+        await self._client.write_gatt_char(BLE_START_CHAR_UUID, b"\x00")
 
     async def store_dequeue(self, session_id: str) -> None:
         if not self._client:
@@ -217,6 +228,77 @@ class BleInterface:
             session.commit()
 
 
+############# DATABASE FUNCTIONS #############
+
+
+def is_registered(session_id: str) -> bool:
+    with Session(engine) as session:
+        session_record = session.execute(
+            select(SessionRecord).where(SessionRecord.session_id == session_id)
+        ).scalar_one_or_none()
+
+        if not session_record:
+            session.add(SessionRecord(session_id=session_id))
+            session.commit()
+            return False
+
+        return session_record.registered
+
+
+def get_bedtime(session_id: str) -> time | None:
+    with Session(engine) as session:
+        record = session.execute(
+            select(SessionRecord).where(SessionRecord.session_id == session_id)
+        ).scalar_one()
+
+        return record.bedtime
+
+
+def get_timezone(session_id: str) -> str:
+    with Session(engine) as session:
+        record = session.execute(
+            select(SessionRecord).where(SessionRecord.session_id == session_id)
+        ).scalar_one()
+
+        return record.meta.timezone
+
+
+def get_risingtime(session_id: str) -> time:
+    with Session(engine) as session:
+        record = session.execute(
+            select(SessionMeta).where(SessionMeta.session_id == session_id)
+        ).scalar_one()
+        timezone = record.timezone
+        coords = record.location.split(",")
+        lat = coords[0]
+        long = coords[1]
+
+        r = requests.get(
+            f"https://api.sunrise-sunset.org/json?lat={lat}&lng={long}&tzid={timezone}"
+        )
+
+        if r.ok:
+            data = cast(dict[str, str], r.json()["results"])
+            return (datetime.strptime(data["sunrise"], "%I:%M:%S %p") - timedelta(hours=1)).time()
+        else:
+            return datetime.strptime("5:00:00 AM", "%I:%M:%S %p").time()
+
+
+#######################################
+
+############# UTILS #############
+
+
+def get_current_time(timezone: str) -> time:
+    r = requests.get(f"https://timeapi.io/api/time/current/zone?timeZone={timezone}")
+
+    if r.ok:
+        data = cast(dict[str, str], r.json())
+        return datetime.strptime(data["time"], "%H:%M").time()
+    else:
+        return datetime.now(ZoneInfo(timezone)).time()
+
+
 def get_routing_table_ip(client_ip: str) -> str:
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s.connect((client_ip, 80))
@@ -224,20 +306,38 @@ def get_routing_table_ip(client_ip: str) -> str:
     s.close()
     return ip
 
+def check_to_end(current: time, start: time, end: time) -> bool:
+    today = datetime.today()
+    current_dt = datetime.combine(today, current)
+    start_dt = datetime.combine(today, start)
+    end_dt = datetime.combine(today, end)
+    
+    if start_dt > end_dt:
+        end_dt += timedelta(hours=24)
+    
+    return current_dt >= end_dt
+
+#######################################
 
 # states per identified session
 ran_per_identify = False
 id_is_registered = False
+to_start: bool = False
+start_time: time | None = None
+end_time: time | None = None
 
 
 def reset_session_state():
-    global ran_per_identify, id_is_registered
+    global ran_per_identify, id_is_registered, to_start, end_time, start_time
     ran_per_identify = False
     id_is_registered = False
+    to_start = False
+    start_time = None
+    end_time = None
 
 
 async def main() -> None:
-    global ran_per_identify, id_is_registered
+    global ran_per_identify, id_is_registered, to_start, end_time, start_time
     interface = await BleInterface().create()
 
     print("connected")
@@ -248,26 +348,58 @@ async def main() -> None:
         id = await interface.get_identity()
         if id == " ":
             reset_session_state()
-            continue
 
-        print(id)
 
-        # only runs once per identified session id
-        if not ran_per_identify:
-            ran_per_identify = True
+        # no id detected, or already set to not start
+        if id == " " or (start_time != None and to_start == False):
+            pass
 
-            id_is_registered = await interface.is_registered(id)
-            _, _, ip = await interface.store_session_metadata(id)
+        else:
+            print(id)
 
-            # only provide the weblink (to the register web interface) if not registered
+            # only runs once per identified session id
+            if not ran_per_identify:
+                ran_per_identify = True
+
+                id_is_registered = is_registered(id)
+                _, _, ip = await interface.store_session_metadata(id)
+
+                # only provide the weblink (to the register web interface) if not registered
+                if not id_is_registered:
+                    await interface.provide_weblink(
+                        f"{get_routing_table_ip(ip)}:5000/register?id={id}"
+                    )
+
             if not id_is_registered:
-                await interface.provide_weblink(f"{get_routing_table_ip(ip)}:5000/register?id={id}") 
+                continue
+        
+            current = get_current_time(get_timezone(id))
             
 
-        if not id_is_registered:
-            continue
+            # if to_start is not checked, then check
+            if start_time == None:
+                bedtime = get_bedtime(id)
 
-        await interface.store_dequeue(id)
+                if bedtime:
+                    to_start = current >= bedtime
+
+                if to_start:
+                    print("starting")
+                    start_time = current
+                    await interface.set_start()
+
+            # start_time is never None if to_start is true
+            if to_start and start_time:
+                if end_time == None:
+                    end_time = get_risingtime(id) 
+
+                await interface.store_dequeue(id)
+                print("stop time:", end_time)
+
+                if check_to_end(current, start_time, end_time):
+                    await interface.set_stop()
+                    to_start = False
+                    print("stopping")
 
 
 if __name__ == "__main__":

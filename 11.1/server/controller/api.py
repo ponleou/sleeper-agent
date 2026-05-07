@@ -26,7 +26,13 @@ def register():
             record.registered = True
 
             if appname and title:
-                session.add(PriorityData(session_id=id, appname=appname.lower(), title=title.lower()))
+                priority = session.execute(select(PriorityData).where(PriorityData.session_id == id)).scalar_one_or_none()
+
+                if not priority:
+                    session.add(PriorityData(session_id=id, appname=appname.lower(), title=title.lower()))
+                else:
+                    priority.appname = appname.lower()
+                    priority.title = title.lower()
             
             session.commit()
 
