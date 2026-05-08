@@ -7,7 +7,7 @@ using std::queue;
 #define BLE_SERVICE_UUID "00000100-addd-43a2-b9cc-6c8adc8a7761"
 #define BLE_SESSION_CHAR_UUID "00000101-addd-43a2-b9cc-6c8adc8a7761"
 #define BLE_ENQUEUE_CHAR_UUID "00000110-addd-43a2-b9cc-6c8adc8a7761"
-#define BLE_START_CHAR_UUID "00000120-addd-43a2-b9cc-6c8adc8a7761"
+#define BLE_LOCK_CHAR_UUID "00000120-addd-43a2-b9cc-6c8adc8a7761"
 #define BLE_PRIORITY_CHAR_UUID "00000130-addd-43a2-b9cc-6c8adc8a7761"
 #define BLE_ALERT_CHAR_UUID "00000140-addd-43a2-b9cc-6c8adc8a7761"
 #define BLE_WEBLINK_CHAR_UUID "00000150-addd-43a2-b9cc-6c8adc8a7761"
@@ -16,7 +16,7 @@ using std::queue;
 class IBleHostWriter {
   public:
     enum Action {
-        START,
+        LOCK,
         ALERT,
     };
 
@@ -39,7 +39,7 @@ class BleHost : public IBleHostWriter {
     BLEService service;
     BLEStringCharacteristic data_enqueue;
     BLEStringCharacteristic session_id;
-    BLEBoolCharacteristic start_action;
+    BLEBoolCharacteristic lock_action;
     BLEStringCharacteristic priority_data;
     BLEBoolCharacteristic alert_action;
     BLEStringCharacteristic weblink;
