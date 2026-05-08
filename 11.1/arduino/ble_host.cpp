@@ -3,7 +3,7 @@
 BleHost::BleHost()
     : service(BLE_SERVICE_UUID), session_id(BLE_SESSION_CHAR_UUID, BLERead | BLENotify, 6),
       data_enqueue(BLE_ENQUEUE_CHAR_UUID, BLERead | BLEWrite, 512),
-      start_action(BLE_START_CHAR_UUID, BLEWrite), stop_action(BLE_STOP_CHAR_UUID, BLEWrite),
+      start_action(BLE_START_CHAR_UUID, BLEWrite), priority_data(BLE_PRIORITY_CHAR_UUID, BLEWrite, 512),
       alert_action(BLE_ALERT_CHAR_UUID, BLEWrite), weblink(BLE_WEBLINK_CHAR_UUID, BLEWrite, 512), metadata(BLE_METADATA_CHAR_UUID, BLERead, 512){
 }
 
@@ -14,7 +14,7 @@ void BleHost::initialise() {
     this->service.addCharacteristic(this->data_enqueue);
     this->service.addCharacteristic(this->session_id);
     this->service.addCharacteristic(this->start_action);
-    this->service.addCharacteristic(this->stop_action);
+    this->service.addCharacteristic(this->priority_data);
     this->service.addCharacteristic(this->alert_action);
     this->service.addCharacteristic(this->weblink);
     this->service.addCharacteristic(this->metadata);
@@ -44,9 +44,6 @@ bool BleHost::read_action_char(BleHost::Action action, bool *value) {
     case BleHost::START:
         return read_action_helper(this->start_action, value);
         break;
-    case BleHost::STOP:
-        return read_action_helper(this->stop_action, value);
-        break;
     case BleHost::ALERT:
         return read_action_helper(this->alert_action, value);
         break;
@@ -58,8 +55,30 @@ bool BleHost::read_action_char(BleHost::Action action, bool *value) {
 bool BleHost::write_data_enqueue(queue<String> &queue) {
     if (this->data_enqueue.value() == " " && !queue.empty()) {
         String val = queue.front();
-        if (val.length() > 512)
-            val = val.substring(0, 512);
+
+        // if data too long, we keep segment 1 2 and 4, and truncate segment 3 to fit
+        if (val.length() > 512) {
+            int d1 = val.indexOf('|');
+            int d2 = val.indexOf('|', d1 + 1);
+            int d3 = val.indexOf('|', d2 + 1);
+
+            String seg1 = val.substring(0, d1);
+            String seg2 = val.substring(d1 + 1, d2);
+            String seg3 = val.substring(d2 + 1, d3);
+            String seg4 = val.substring(d3 + 1);
+
+            int fixedLen = seg1.length() + seg2.length() + 3 + seg4.length();
+            int remaining = 512 - fixedLen;
+
+            // if even truncating segment 3 doesnt fit, dont need to enqueue
+            if (remaining < 0) {
+                queue.pop();
+                return false;
+            }
+
+            seg3 = seg3.substring(0, remaining);
+            val = seg1 + "|" + seg2 + "|" + seg3 + "|" + seg4;
+        }
         this->data_enqueue.writeValue(val);
         queue.pop();
         return true;
@@ -81,6 +100,14 @@ bool BleHost::read_weblink_char(String *value) {
     return false;
 }
 
+bool BleHost::read_priority_char(String *value) {
+    if (this->priority_data.value() != " ") {
+        *value = priority_data.value();
+        return true;
+    }
+    return false;
+}
+
 void BleHost::write_metadata(String metadata) {
     if (metadata == "")
         metadata = " ";
@@ -94,7 +121,6 @@ void BleHost::reset_weblink() {
 
 void BleHost::reset_actions() {
     this->start_action.writeValue(false);
-    this->stop_action.writeValue(false);
     this->alert_action.writeValue(false);
 }
 

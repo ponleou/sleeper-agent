@@ -4,7 +4,7 @@ from zoneinfo import ZoneInfo
 from bleak import BleakScanner, BleakClient
 from bleak.exc import BleakDeviceNotFoundError, BleakError, BleakGATTProtocolError
 import socket
-from models import engine, SessionRecord, NotificationData, SessionMeta
+from models import PriorityData, engine, SessionRecord, NotificationData, SessionMeta
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 from timezonefinder import TimezoneFinder
@@ -15,7 +15,7 @@ BLE_SERVICE_UUID = "00000100-addd-43a2-b9cc-6c8adc8a7761"
 BLE_SESSION_CHAR_UUID = "00000101-addd-43a2-b9cc-6c8adc8a7761"
 BLE_ENQUEUE_CHAR_UUID = "00000110-addd-43a2-b9cc-6c8adc8a7761"
 BLE_START_CHAR_UUID = "00000120-addd-43a2-b9cc-6c8adc8a7761"
-BLE_STOP_CHAR_UUID = "00000130-addd-43a2-b9cc-6c8adc8a7761"
+BLE_PRIORITY_CHAR_UUID = "00000130-addd-43a2-b9cc-6c8adc8a7761"
 BLE_ALERT_CHAR_UUID = "00000140-addd-43a2-b9cc-6c8adc8a7761"
 BLE_WEBLINK_CHAR_UUID = "00000150-addd-43a2-b9cc-6c8adc8a7761"
 BLE_METADATA_CHAR_UUID = "00000160-addd-43a2-b9cc-6c8adc8a7761"
@@ -168,6 +168,26 @@ class BleInterface:
         print("provided:", link)
         await self._client.write_gatt_char(BLE_WEBLINK_CHAR_UUID, link.encode())
 
+    async def send_priority_data(self, session_id: str) -> None:
+        if not self._client:
+            print("ERROR: Client is not created")
+            raise BleakDeviceNotFoundError(BLE_SERVICE_UUID)
+
+        if not self._client.is_connected:
+            print("WARN: Read/write attempt with BLE device failed")
+            raise BleakError("Connection lost")
+
+        with Session(engine) as session:
+            record = session.execute(select(PriorityData).where(PriorityData.session_id == session_id)).scalar_one_or_none()
+
+            data = " "
+
+            if record and record.appname != "" and record.title != "":
+                data = f"{record.appname}|{record.title}"
+            
+            print("sent priority data:", data)
+            await self._client.write_gatt_char(BLE_PRIORITY_CHAR_UUID, data.encode())
+
     async def set_start(self) -> None:
         if not self._client:
             print("ERROR: Client is not created")
@@ -232,6 +252,10 @@ class BleInterface:
         print("Received:", value)
 
         parts = value.split("|")
+
+        if (len(parts) < 4):
+            return
+
         appname = parts[0]
         title = parts[1]
         text = parts[2]
@@ -473,20 +497,18 @@ async def main() -> None:
                         f"{get_routing_table_ip(ip)}:5000/register?id={id}"
                     )
 
+                # if registered, then we can provide the registered priority data (if any)
+                else:
+                    await interface.send_priority_data(id)
+
             if not id_is_registered:
                 continue
         
             # if to_start is not checked, then check
-            if start_time == None:
-                bedtime = get_bedtime(id)
-
-                if bedtime:
-                    to_start = current >= bedtime
-
-                if to_start:
-                    start_time = current
-                    print("starting:", start_time)
-                    await interface.set_start()
+            if start_time == None and to_start:
+                start_time = current
+                print("starting:", start_time)
+                await interface.set_start()
 
             # start_time is never None if to_start is true here (ONLY HERE)
             if to_start and start_time:
@@ -512,10 +534,16 @@ if __name__ == "__main__":
     while True:
         try:
             asyncio.run(main())
-        except BleakDeviceNotFoundError:
-            print("Device not found, retrying")
-        except (BleakError, BleakGATTProtocolError):
-            print("Disconnected, reconnecting...")
+
+        # these are expected errors when disconnected from BLE, just keep trying to reconnect
+        except BleakDeviceNotFoundError as e:
+            print(e)
+            print("Reconnecting...")
+        except (BleakError, BleakGATTProtocolError) as e:
+            print(e)
+            print("Reconnecting...")
+
+        # close server
         except KeyboardInterrupt:
             print("\nExiting...")
             break

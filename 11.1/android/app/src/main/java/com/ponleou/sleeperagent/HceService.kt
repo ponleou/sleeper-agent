@@ -346,7 +346,7 @@ class HceService : HostApduService() {
     }
 
     private fun buildCollectResponse(): ByteArray {
-        val payload = loadActivePayload() ?: return byteArrayOf(0x00.toByte()) + NfcApdu.SW_SUCCESS
+         val payload = loadActivePayload() ?: return byteArrayOf(0x00.toByte()) + NfcApdu.SW_SUCCESS
         val remaining = payload.payload.size - activeOffset
         if (remaining <= 0) {
             clearActivePayload()
@@ -363,7 +363,7 @@ class HceService : HostApduService() {
         }
 
         val response = ByteArray(1 + chunk.size)
-        response[0] = chunkSize.toByte()
+        response[0] = (chunkSize and 0xFF).toByte()
         System.arraycopy(chunk, 0, response, 1, chunk.size)
         return response + if (hasMore) NfcApdu.SW_DATA else NfcApdu.SW_SUCCESS
     }

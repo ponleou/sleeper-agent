@@ -6,8 +6,13 @@
 #include "include/nfc_reader.hpp"
 #include "include/ble_host.hpp"
 
+#define SLOW_POLLING_PERIOD 500
+
 BleHost host;
 NfcReader nfc(Serial1, host);
+
+unsigned long slow_polling_last_ms = millis();
+
 
 void setup(void) {
     Serial.begin(115200);
@@ -26,5 +31,12 @@ void setup(void) {
 
 void loop() {
     BLE.poll();
-    nfc.stateful_communication();
+
+    if (millis() - slow_polling_last_ms >= SLOW_POLLING_PERIOD) {
+        slow_polling_last_ms = millis();
+
+        // run slow pollers here
+        nfc.stateful_communication();
+    }
+
 }

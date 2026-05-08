@@ -24,7 +24,9 @@ object NfcApdu {
 
     const val MAX_APDU_RESPONSE_BYTES: Int = 255
     const val COLLECT_OVERHEAD_BYTES: Int = 3
-    const val MAX_COLLECT_DATA_BYTES: Int = MAX_APDU_RESPONSE_BYTES - COLLECT_OVERHEAD_BYTES
+
+    const val PN532_FRAME_SIZE_LIMIT: Int = 64
+    const val MAX_COLLECT_DATA_BYTES: Int = PN532_FRAME_SIZE_LIMIT - COLLECT_OVERHEAD_BYTES
 
     val AID_SLEEPER_AGENT: ByteArray = byteArrayOf(
         0xF0.toByte(),

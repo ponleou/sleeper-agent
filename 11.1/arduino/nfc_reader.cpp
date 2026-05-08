@@ -3,7 +3,6 @@
 
 NfcReader::NfcReader(HardwareSerial &serial, IBleHostWriter &host) : pn532hsu(serial), nfc(pn532hsu), host(host) {
     this->version_data = 0;
-    this->last_communication_ms = millis();
     this->reset_state();
 }
 
@@ -65,11 +64,6 @@ void NfcReader::reset_state() {
 }
 
 void NfcReader::stateful_communication() {
-    if (millis() - this->last_communication_ms < POLLING_PERIOD)
-        return;
-
-    this->last_communication_ms = millis();
-
     if (!this->connected) {
         this->reset_state();
         this->check_connection();
@@ -285,23 +279,31 @@ void NfcReader::communicate() {
     if (!this->connected)
         return;
 
+    String priority_data = " ";
+    bool has_priority = this->host.read_priority_char(&priority_data);
+
     uint8_t data_length = 0;
     uint8_t data[255];
+
+    String concat_data = "";
+    String segment = "";
     while (collect_data && this->connected) {
         collect_data = false;
         this->connected = NfcCommands::collect(this->nfc, &collect_data, data, &data_length);
 
         if (data_length > 0) {
-            String combined = "";
-            String segment = "";
 
             // replace \0 delimitter with |, while also removing all | from the data itself
             for (uint8_t i = 0; i < data_length; i++) {
                 if (data[i] == '\0') {
+
+                    // finishing a segment
                     segment.replace("|", "");
-                    if (combined.length() > 0)
-                        combined += "|";
-                    combined += segment;
+
+                    if (concat_data.length() > 0)
+                        concat_data += "|";
+
+                    concat_data += segment;
                     segment = "";
                 } else {
                     segment += (char)data[i];
@@ -309,17 +311,53 @@ void NfcReader::communicate() {
             }
 
             // for the last completed segment (where it doesnt find a \0)
-            if (segment.length() > 0) {
+            if (segment.length() > 0 && !collect_data) {
                 segment.replace("|", "");
-                if (combined.length() > 0)
-                    combined += "|";
-                combined += segment;
-            }
 
-            this->collected_queue.push(combined);
-            Serial.println(combined);
+                if (concat_data.length() > 0)
+                    concat_data += "|";
+
+                concat_data += segment;
+            }
         }
     }
+
+    if (concat_data != "") {
+        this->collected_queue.push(concat_data);
+        Serial.println(concat_data);
+
+        bool priority_match = false;
+        if (has_priority)
+            priority_match = check_matching_priority(concat_data, priority_data);
+
+        if (priority_match)
+            Serial.println("Priority match");
+    }
+}
+
+bool NfcReader::check_matching_priority(String data, String priority_data) {
+    if (priority_data.length() <= 0)   
+        return false;
+
+    int priority_sep = priority_data.indexOf('|');
+    int data_sep1 = data.indexOf('|');
+
+    if (priority_sep == -1 || data_sep1 == -1)
+        return false;
+
+    String priority_seg1 = priority_data.substring(0, priority_sep);
+    String data_seg1 = data.substring(0, data_sep1);
+    if (data_seg1.indexOf(priority_seg1) == -1)
+        return false;
+
+    int data_sep2 = data.indexOf('|', data_sep1 + 1);
+    if (data_sep2 == -1)
+        return false;
+
+    String priority_seg2 = priority_data.substring(priority_sep + 1);
+    String data_seg2 = data.substring(data_sep1 + 1, data_sep2);
+
+    return data_seg2.indexOf(priority_seg2) != -1;
 }
 
 void NfcReader::start_action() {

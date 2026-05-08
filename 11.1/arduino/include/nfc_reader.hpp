@@ -14,8 +14,6 @@ using std::queue;
 #include <PN532_HSU.cpp>
 #endif
 
-#define POLLING_PERIOD 500
-
 #define CLA_PROPRIETARY 0x80
 
 #define INS_IDENTIFY 0x01
@@ -54,7 +52,6 @@ class NfcReader {
     bool identified;
     bool client_collector_active;
 
-    unsigned long last_communication_ms;
     String identity;
     queue<String> collected_queue;
 
@@ -65,6 +62,8 @@ class NfcReader {
     void select_hce();
     void communicate();
     void reset_state();
+
+    bool check_matching_priority(String data, String priority_data);
 
   public:
     uint32_t version_data;
