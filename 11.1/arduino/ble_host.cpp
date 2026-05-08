@@ -5,6 +5,11 @@ BleHost::BleHost()
       data_enqueue(BLE_ENQUEUE_CHAR_UUID, BLERead | BLEWrite, 512),
       lock_action(BLE_LOCK_CHAR_UUID, BLEWrite), priority_data(BLE_PRIORITY_CHAR_UUID, BLEWrite, 512),
       alert_action(BLE_ALERT_CHAR_UUID, BLEWrite), weblink(BLE_WEBLINK_CHAR_UUID, BLEWrite, 512), metadata(BLE_METADATA_CHAR_UUID, BLERead, 512){
+
+        this->lock_action.writeValue(false);
+        this->priority_data.writeValue(" ");
+        this->alert_action.writeValue(false);
+        this->weblink.writeValue(" ");
 }
 
 void BleHost::initialise() {
@@ -32,11 +37,9 @@ void BleHost::write_session_id(String id) {
 }
 
 bool BleHost::read_action_helper(BLEBoolCharacteristic action, bool *value) {
-    if (action.written()) {
-        *value = action.value();
-        return true;
-    }
-    return false;
+    bool read_value = action.value();
+    *value = read_value;
+    return read_value;
 }
 
 bool BleHost::read_action_char(BleHost::Action action, bool *value) {
