@@ -1,7 +1,7 @@
 #include "include/nfc_reader.hpp"
 #include "include/ble_host.hpp"
 
-NfcReader::NfcReader(HardwareSerial &serial, IBleHostWriter &host) : pn532hsu(serial), nfc(pn532hsu), host(host) {
+NfcReader::NfcReader(HardwareSerial &serial, IBleHostStateCommunicator &host) : pn532hsu(serial), nfc(pn532hsu), host(host) {
     this->version_data = 0;
     this->reset_state();
 }
@@ -224,6 +224,10 @@ bool NfcCommands::collect_metadata(PN532 &nfc, String *value) {
 }
 
 void NfcReader::communicate() {
+    if (!this->host.poll_server_status()) {
+        Serial.println("Server disconnected");
+    }
+
     if (!this->identified)
         this->identified = this->connected = NfcCommands::identify(this->nfc, &this->identity);
 

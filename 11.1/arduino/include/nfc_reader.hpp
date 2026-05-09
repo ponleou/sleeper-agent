@@ -45,7 +45,7 @@ class NfcReader {
   private:
     PN532_HSU pn532hsu;
     PN532 nfc;
-    IBleHostWriter &host;
+    IBleHostStateCommunicator &host;
 
     bool connected;
     bool selected;
@@ -68,7 +68,7 @@ class NfcReader {
   public:
     uint32_t version_data;
 
-    NfcReader(HardwareSerial &serial, IBleHostWriter &host);
+    NfcReader(HardwareSerial &serial, IBleHostStateCommunicator &host);
 
     bool initialise();
     void stateful_communication();

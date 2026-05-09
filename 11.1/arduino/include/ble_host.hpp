@@ -12,38 +12,59 @@ using std::queue;
 #define BLE_ALERT_CHAR_UUID "00000140-addd-43a2-b9cc-6c8adc8a7761"
 #define BLE_WEBLINK_CHAR_UUID "00000150-addd-43a2-b9cc-6c8adc8a7761"
 #define BLE_METADATA_CHAR_UUID "00000160-addd-43a2-b9cc-6c8adc8a7761"
+#define BLE_SERVERPOLL_CHAR_UUID "00000170-addd-43a2-b9cc-6c8adc8a7761"
+#define BLE_STATUS_CHAR_UUID "00000180-addd-43a2-b9cc-6c8adc8a7761"
 
-class IBleHostWriter {
+#define SERVER_TIMEOUT_TOLERANCE_MS 10000
+
+class IBleHostActuatorReader {
   public:
     enum Action {
         LOCK,
         ALERT,
     };
 
+    virtual bool read_server_status();
+    virtual bool read_action_char(IBleHostActuatorReader::Action action, bool *value);
+    virtual bool read_status_text_char(String *value);
+};
+
+// required by NfcReader to communicate
+class IBleHostStateCommunicator {
+  public:
+    virtual bool poll_server_status();
     virtual void write_session_id(String id);
-    virtual bool write_data_enqueue(queue<String> &queue);
     virtual void write_metadata(String metadata);
+    virtual bool write_data_enqueue(queue<String> &queue);
+    virtual bool read_priority_char(String *value);
+    virtual bool read_weblink_char(String *value);
     virtual void reset_ble();
     
     // FIXME: move this to a Reader
     // this will also require moving implementations of nfc_reader to an actuator
-    virtual bool read_weblink_char(String *value);
-    virtual bool read_action_char(IBleHostWriter::Action action, bool *value);
-    virtual bool read_priority_char(String *value);
 
     virtual void debug_print();
 };
 
-class BleHost : public IBleHostWriter {
+class BleHost : public IBleHostStateCommunicator, public IBleHostActuatorReader {
   private:
     BLEService service;
+    
+    // reads characteristics
     BLEStringCharacteristic data_enqueue;
     BLEStringCharacteristic session_id;
+    BLEStringCharacteristic metadata;
+
+    // writes characteristics
     BLEBoolCharacteristic lock_action;
     BLEStringCharacteristic priority_data;
     BLEBoolCharacteristic alert_action;
     BLEStringCharacteristic weblink;
-    BLEStringCharacteristic metadata;
+    BLEStringCharacteristic status_text;
+    BLEIntCharacteristic server_poll;
+
+    // for server poll
+    unsigned long last_server_poll_ms;
 
     bool read_action_helper(BLEBoolCharacteristic action, bool *value);
 
@@ -54,14 +75,17 @@ class BleHost : public IBleHostWriter {
     void reset_weblink();
     void reset_actions();
 
+    bool poll_server_status() override;
     void write_session_id(String id) override;
-    bool write_data_enqueue(queue<String> &queue) override;
     void write_metadata(String metadata) override;
+    bool write_data_enqueue(queue<String> &queue) override;
+    bool read_weblink_char(String *value) override;
+    bool read_priority_char(String *value) override;
     void reset_ble() override;
 
-    bool read_weblink_char(String *value) override;
+    bool read_server_status() override;
     bool read_action_char(BleHost::Action action, bool *value) override;
-    bool read_priority_char(String *value) override;
+    bool read_status_text_char(String *value) override;
 
     void debug_print() override;
 };
