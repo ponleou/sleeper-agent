@@ -1,7 +1,8 @@
 #include "include/nfc_reader.hpp"
 #include "include/ble_host.hpp"
 
-NfcReader::NfcReader(HardwareSerial &serial, IBleHostStateCommunicator &host) : pn532hsu(serial), nfc(pn532hsu), host(host) {
+NfcReader::NfcReader(HardwareSerial &serial, IBleHostStateCommunicator &host)
+    : pn532hsu(serial), nfc(pn532hsu), host(host) {
     this->version_data = 0;
     this->reset_state();
 }
@@ -64,6 +65,10 @@ void NfcReader::reset_state() {
 }
 
 void NfcReader::stateful_communication() {
+    if (!this->host.poll_server_status()) {
+        Serial.println("Server disconnected");
+    }
+
     if (!this->connected) {
         this->reset_state();
         this->check_connection();
@@ -224,10 +229,6 @@ bool NfcCommands::collect_metadata(PN532 &nfc, String *value) {
 }
 
 void NfcReader::communicate() {
-    if (!this->host.poll_server_status()) {
-        Serial.println("Server disconnected");
-    }
-
     if (!this->identified)
         this->identified = this->connected = NfcCommands::identify(this->nfc, &this->identity);
 
@@ -247,15 +248,17 @@ void NfcReader::communicate() {
 
             this->host.write_metadata(metadata);
             Serial.println(metadata);
-
-            // only set session id on host when it is ready
-            // by ready, it means we have provided the mession metadata
-            this->host.write_session_id(this->identity);
         }
 
         // if still not collected, retry
         if (!this->metadata_collected)
             return;
+    }
+
+    if (this->identified && this->metadata_collected) {
+        // only set session id on host when it is ready
+        // by ready, it means we have provided the mession metadata
+        this->host.write_session_id(this->identity);
     }
 
     if (!this->weblink_provided) {
@@ -272,6 +275,36 @@ void NfcReader::communicate() {
         }
     }
 
+    bool _ = false;
+    this->connected = NfcCommands::poll(this->nfc, &_);
+}
+
+bool NfcReader::check_matching_priority(String data, String priority_data) {
+    if (priority_data.length() <= 0)
+        return false;
+
+    int priority_sep = priority_data.indexOf('|');
+    int data_sep1 = data.indexOf('|');
+
+    if (priority_sep == -1 || data_sep1 == -1)
+        return false;
+
+    String priority_seg1 = priority_data.substring(0, priority_sep);
+    String data_seg1 = data.substring(0, data_sep1);
+    if (data_seg1.indexOf(priority_seg1) == -1)
+        return false;
+
+    int data_sep2 = data.indexOf('|', data_sep1 + 1);
+    if (data_sep2 == -1)
+        return false;
+
+    String priority_seg2 = priority_data.substring(priority_sep + 1);
+    String data_seg2 = data.substring(data_sep1 + 1, data_sep2);
+
+    return data_seg2.indexOf(priority_seg2) != -1;
+}
+
+void NfcReader::start_action() {
     if (!this->client_collector_active) {
         this->client_collector_active = this->connected = NfcCommands::start_client_collector(this->nfc);
         if (!this->connected)
@@ -339,30 +372,17 @@ void NfcReader::communicate() {
     }
 }
 
-bool NfcReader::check_matching_priority(String data, String priority_data) {
-    if (priority_data.length() <= 0)   
-        return false;
+void NfcReader::stop_action() {
+    if (this->client_collector_active) {
+        bool stopped = this->connected = NfcCommands::stop_client_collector(this->nfc);
+        this->client_collector_active = stopped;
 
-    int priority_sep = priority_data.indexOf('|');
-    int data_sep1 = data.indexOf('|');
+        if (!this->connected)
+            return;
+    }
 
-    if (priority_sep == -1 || data_sep1 == -1)
-        return false;
-
-    String priority_seg1 = priority_data.substring(0, priority_sep);
-    String data_seg1 = data.substring(0, data_sep1);
-    if (data_seg1.indexOf(priority_seg1) == -1)
-        return false;
-
-    int data_sep2 = data.indexOf('|', data_sep1 + 1);
-    if (data_sep2 == -1)
-        return false;
-
-    String priority_seg2 = priority_data.substring(priority_sep + 1);
-    String data_seg2 = data.substring(data_sep1 + 1, data_sep2);
-
-    return data_seg2.indexOf(priority_seg2) != -1;
-}
-
-void NfcReader::start_action() {
+    bool _ = false;
+    this->connected = NfcCommands::poll(this->nfc, &_);
+    if (!this->connected)
+        return;
 }

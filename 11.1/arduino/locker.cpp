@@ -7,12 +7,12 @@ Locker::Locker(int pin) {
 }
 
 void Locker::lock() {
-    Serial.println("lock");
+    // Serial.println("lock");
     // this->servo.write(90);
 }
 
 
 void Locker::unlock() {
-    Serial.println("unlock");
+    // Serial.println("unlock");
     // this->servo.write(0);
 }

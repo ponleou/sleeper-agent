@@ -208,7 +208,7 @@ class BleInterface:
             print("WARN: Read/write attempt with BLE device failed")
             raise BleakError("Connection lost")
 
-        await self._client.write_gatt_char(BLE_LOCK_CHAR_UUID, b"\x01")
+        await self._client.write_gatt_char(BLE_LOCK_CHAR_UUID, bytes([0x01]))
 
     async def stop_lock(self) -> None:
         if not self._client:
@@ -219,7 +219,7 @@ class BleInterface:
             print("WARN: Read/write attempt with BLE device failed")
             raise BleakError("Connection lost")
 
-        await self._client.write_gatt_char(BLE_LOCK_CHAR_UUID, b"\x00")
+        await self._client.write_gatt_char(BLE_LOCK_CHAR_UUID, bytes([0x00]))
 
     async def start_alert(self) -> None:
         if not self._client:
@@ -230,7 +230,7 @@ class BleInterface:
             print("WARN: Read/write attempt with BLE device failed")
             raise BleakError("Connection lost")
 
-        await self._client.write_gatt_char(BLE_ALERT_CHAR_UUID, b"\x01")
+        await self._client.write_gatt_char(BLE_ALERT_CHAR_UUID, bytes([0x01]))
 
     async def stop_alert(self) -> None:
         if not self._client:
@@ -241,7 +241,7 @@ class BleInterface:
             print("WARN: Read/write attempt with BLE device failed")
             raise BleakError("Connection lost")
 
-        await self._client.write_gatt_char(BLE_ALERT_CHAR_UUID, b"\x00")
+        await self._client.write_gatt_char(BLE_ALERT_CHAR_UUID, bytes([0x00]))
 
     async def store_dequeue(self, session_id: str) -> None:
         if not self._client:

@@ -58,7 +58,7 @@ class HceService : HostApduService() {
 
         if (isPollCommand(commandApdu)) {
             if (!CollectorControl.isEnabled()) {
-                return NfcApdu.SW_UNKNOWN
+                return NfcApdu.SW_SUCCESS
             }
             recordCollectorActivity()
             return buildPollResponse()

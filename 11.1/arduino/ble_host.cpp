@@ -30,7 +30,6 @@ void BleHost::initialise() {
 
     this->lock_action.writeValue(false);
     this->priority_data.writeValue(" ");
-    this->alert_action.writeValue(false);
     this->weblink.writeValue(" ");
     this->status_text.writeValue(" ");
     this->server_poll.writeValue(0);
@@ -43,7 +42,7 @@ void BleHost::write_session_id(String id) {
     this->session_id.writeValue(id);
 }
 
-bool BleHost::read_action_helper(BLEBoolCharacteristic action, bool *value) {
+bool BleHost::read_action_helper(BLEBoolCharacteristic &action, bool *value) {
     bool read_value = action.value();
     *value = read_value;
     return read_value;
@@ -131,17 +130,16 @@ void BleHost::reset_weblink() {
         this->weblink.writeValue(" ");
 }
 
-void BleHost::reset_actions() {
-    this->lock_action.writeValue(false);
-    this->alert_action.writeValue(false);
-}
+// void BleHost::reset_actions() {
+//     this->lock_action.writeValue(false);
+//     this->alert_action.writeValue(false);
+// }
 
 void BleHost::reset_ble() {
     this->write_session_id(" ");
     this->write_metadata(" ");
     this->reset_enqueued();
     this->reset_weblink();
-    this->reset_actions();
 }
 
 void BleHost::debug_print() {
@@ -152,7 +150,6 @@ void BleHost::debug_print() {
 
 bool BleHost::poll_server_status() {
     if (this->server_poll.written()) {
-        Serial.println("POLL WRITTEN, SKIP");
         return true;
     }
 
@@ -171,11 +168,11 @@ bool BleHost::read_server_status() {
     return poll_value < SERVER_TIMEOUT_TOLERANCE_MS;
 }
 
-bool BleHost::read_status_text_char(String *value)  {
+bool BleHost::read_status_text_char(String *value) {
     String read_value = this->status_text.value();
     if (read_value != " ") {
         *value = read_value;
         return true;
-    } 
+    }
     return false;
 }

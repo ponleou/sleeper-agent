@@ -1,3 +1,4 @@
+#include "include/locker.hpp"
 #ifdef __CLANGD__
 #include <Arduino.h>
 #endif
@@ -5,11 +6,18 @@
 #define PN532_HSU_IMPLEMENTATION 1
 #include "include/ble_host.hpp"
 #include "include/nfc_reader.hpp"
+#include "include/alarm.hpp"
+#include "include/actuators.hpp"
 
 #define SLOW_POLLING_PERIOD 500
 
 BleHost host;
 NfcReader nfc(Serial1, host);
+
+Alarm alarm(10);
+Locker locker(9);
+
+Actuators actuate(host, alarm, locker, nfc);
 
 unsigned long slow_polling_last_ms = millis();
 
@@ -36,5 +44,6 @@ void loop() {
 
         // run slow pollers here
         nfc.stateful_communication();
+        actuate.update();
     }
 }

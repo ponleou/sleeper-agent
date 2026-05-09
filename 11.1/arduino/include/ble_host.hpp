@@ -66,14 +66,13 @@ class BleHost : public IBleHostStateCommunicator, public IBleHostActuatorReader 
     // for server poll
     unsigned long last_server_poll_ms;
 
-    bool read_action_helper(BLEBoolCharacteristic action, bool *value);
+    bool read_action_helper(BLEBoolCharacteristic &action, bool *value);
 
   public:
     BleHost();
     void initialise();
     void reset_enqueued();
     void reset_weblink();
-    void reset_actions();
 
     bool poll_server_status() override;
     void write_session_id(String id) override;
@@ -86,6 +85,7 @@ class BleHost : public IBleHostStateCommunicator, public IBleHostActuatorReader 
     bool read_server_status() override;
     bool read_action_char(BleHost::Action action, bool *value) override;
     bool read_status_text_char(String *value) override;
+    // void reset_actions() override;
 
     void debug_print() override;
 };

@@ -41,7 +41,13 @@ using std::queue;
 #define SW1_SUCCESS 0x90
 #define SW2_SUCCESS 0x00
 
-class NfcReader {
+class INfcActuator {
+  public:
+    virtual void start_action();
+    virtual void stop_action();
+};
+
+class NfcReader: public INfcActuator {
   private:
     PN532_HSU pn532hsu;
     PN532 nfc;
@@ -72,9 +78,9 @@ class NfcReader {
 
     bool initialise();
     void stateful_communication();
-    void start_action();
     void open_link_action();
-    void stop_action();
+    void start_action() override;
+    void stop_action() override;
 };
 
 class NfcCommands {
