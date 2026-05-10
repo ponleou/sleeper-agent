@@ -3,6 +3,7 @@
 #include "ble_host.hpp"
 #include "locker.hpp"
 #include "nfc_reader.hpp"
+#include "priority_button.hpp"
 #include "screen.hpp"
 
 #define PRIORITY_ACTION_DISMISS_DURATION_MS 6000
@@ -16,6 +17,7 @@ class Actuators {
     ILocker &locker;
     INfcActuator &nfc;
     IScreen &screen;
+    IPriorityButton &priority_button;
 
     bool priority_exec_once;
     bool priority_action;
@@ -28,7 +30,7 @@ class Actuators {
     void reset();
 
   public:
-    Actuators(IBleHostActuatorReader &host_reader, IAlarm &alarm, ILocker &locker, INfcActuator &nfc, IScreen &screen);
+    Actuators(IBleHostActuatorReader &host_reader, IAlarm &alarm, ILocker &locker, INfcActuator &nfc, IScreen &screen, IPriorityButton &button);
 
     void update();
 };

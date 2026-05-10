@@ -1,5 +1,4 @@
 #include "include/screen.hpp"
-#include "api/Common.h"
 
 volatile bool Screen::screen_wakeup = false;
 

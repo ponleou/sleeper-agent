@@ -1,8 +1,8 @@
 #include "include/actuators.hpp"
 
 Actuators::Actuators(IBleHostActuatorReader &host_reader, IAlarm &alarm, ILocker &locker, INfcActuator &nfc,
-                     IScreen &screen)
-    : host_reader(host_reader), alarm(alarm), locker(locker), nfc(nfc), screen(screen) {
+                     IScreen &screen, IPriorityButton &button)
+    : host_reader(host_reader), alarm(alarm), locker(locker), nfc(nfc), screen(screen), priority_button(button) {
     this->reset_priority_states();
 }
 
@@ -36,6 +36,8 @@ void Actuators::update() {
     this->host_reader.read_action_char(IBleHostActuatorReader::ALERT, &alert_action);
     bool start_action = false;
     this->host_reader.read_action_char(IBleHostActuatorReader::START, &start_action);
+
+    this->priority_button.check_triggered(&this->priority_action);
 
     // if priority is happening, then we unlock
     if (this->priority_action) {

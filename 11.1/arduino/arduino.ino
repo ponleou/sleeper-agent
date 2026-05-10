@@ -8,12 +8,13 @@
 #include "include/alarm.hpp"
 #include "include/locker.hpp"
 #include "include/actuators.hpp"
+#include "include/priority_button.hpp"
 
-#define PRIORITY_BUTTON_PIN 7
-#define LOCK_RIGHT_PIN 8
-#define LOCK_LEFT_PIN 9
-#define ALARM_PIN 10
+#define ALARM_PIN 8
 #define SCREEN_SENSOR_PIN 11
+#define PRIORITY_BUTTON_PIN 10
+#define LOCK_RIGHT_PIN 12
+#define LOCK_LEFT_PIN 9
 
 #define SLOW_POLLING_PERIOD 500
 
@@ -23,8 +24,9 @@ NfcReader nfc(Serial1, host);
 Alarm alarm(ALARM_PIN);
 Locker locker(LOCK_LEFT_PIN);
 Screen screen(SCREEN_SENSOR_PIN, "Hello", "Setting up...");
+PriorityButton button(PRIORITY_BUTTON_PIN);
 
-Actuators actuate(host, alarm, locker, nfc, screen);
+Actuators actuate(host, alarm, locker, nfc, screen, button);
 
 unsigned long slow_polling_last_ms = millis();
 
