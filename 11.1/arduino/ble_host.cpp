@@ -3,7 +3,7 @@
 BleHost::BleHost()
     : service(BLE_SERVICE_UUID), session_id(BLE_SESSION_CHAR_UUID, BLERead | BLENotify, 6),
       data_enqueue(BLE_ENQUEUE_CHAR_UUID, BLERead | BLEWrite, 512), metadata(BLE_METADATA_CHAR_UUID, BLERead, 512),
-      lock_action(BLE_LOCK_CHAR_UUID, BLEWrite), priority_data(BLE_PRIORITY_CHAR_UUID, BLEWrite, 512),
+      start_action(BLE_START_CHAR_UUID, BLEWrite), priority_data(BLE_PRIORITY_CHAR_UUID, BLEWrite, 512),
       alert_action(BLE_ALERT_CHAR_UUID, BLEWrite), weblink(BLE_WEBLINK_CHAR_UUID, BLEWrite, 512),
       server_poll(BLE_SERVERPOLL_CHAR_UUID, BLEWrite), status_text(BLE_STATUS_CHAR_UUID, BLEWrite, 512) {
 }
@@ -14,7 +14,7 @@ void BleHost::initialise() {
 
     this->service.addCharacteristic(this->data_enqueue);
     this->service.addCharacteristic(this->session_id);
-    this->service.addCharacteristic(this->lock_action);
+    this->service.addCharacteristic(this->start_action);
     this->service.addCharacteristic(this->priority_data);
     this->service.addCharacteristic(this->alert_action);
     this->service.addCharacteristic(this->weblink);
@@ -28,7 +28,7 @@ void BleHost::initialise() {
     BLE.setAdvertisedService(this->service);
     BLE.advertise();
 
-    this->lock_action.writeValue(false);
+    this->start_action.writeValue(false);
     this->priority_data.writeValue(" ");
     this->weblink.writeValue(" ");
     this->status_text.writeValue(" ");
@@ -50,8 +50,8 @@ bool BleHost::read_action_helper(BLEBoolCharacteristic &action, bool *value) {
 
 bool BleHost::read_action_char(BleHost::Action action, bool *value) {
     switch (action) {
-    case BleHost::LOCK:
-        return read_action_helper(this->lock_action, value);
+    case BleHost::START:
+        return read_action_helper(this->start_action, value);
         break;
     case BleHost::ALERT:
         return read_action_helper(this->alert_action, value);

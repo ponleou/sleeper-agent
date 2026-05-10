@@ -239,7 +239,7 @@ class ScanningState(State):
             self.execute_once = True
 
             await interface.stop_alert()
-            await interface.stop_lock()
+            await interface.end_start_action()
 
         id = await interface.get_identity()
         if id != " ":
@@ -321,7 +321,7 @@ class DetectedState(State):
             self.execute_once = True
 
             await interface.stop_alert()
-            await interface.stop_lock()
+            await interface.end_start_action()
 
             self.is_registered = is_registered(id)
             _, self.timezone, ip = await interface.store_session_metadata(id)
@@ -399,7 +399,7 @@ class ActiveState(State):
 
         if not self.execute_once:
             self.execute_once = True
-            await interface.start_lock()
+            await interface.set_start_action()
             await interface.send_priority_data(id)
 
         if self.timezone == "":

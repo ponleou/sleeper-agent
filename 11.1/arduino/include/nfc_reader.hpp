@@ -43,7 +43,7 @@ using std::queue;
 
 class INfcActuator {
   public:
-    virtual void start_action();
+    virtual void start_action(bool *priority_detected);
     virtual void stop_action();
 };
 
@@ -79,7 +79,7 @@ class NfcReader: public INfcActuator {
     bool initialise();
     void stateful_communication();
     void open_link_action();
-    void start_action() override;
+    void start_action(bool *priority_detected) override;
     void stop_action() override;
 };
 

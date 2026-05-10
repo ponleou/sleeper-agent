@@ -304,7 +304,7 @@ bool NfcReader::check_matching_priority(String data, String priority_data) {
     return data_seg2.indexOf(priority_seg2) != -1;
 }
 
-void NfcReader::start_action() {
+void NfcReader::start_action(bool *priority_detected) {
     if (!this->client_collector_active) {
         this->client_collector_active = this->connected = NfcCommands::start_client_collector(this->nfc);
         if (!this->connected)
@@ -367,8 +367,10 @@ void NfcReader::start_action() {
         if (has_priority)
             priority_match = check_matching_priority(concat_data, priority_data);
 
-        if (priority_match)
+        if (priority_match) {
+            *priority_detected = priority_match;
             Serial.println("Priority match");
+        }
     }
 }
 

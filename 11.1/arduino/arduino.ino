@@ -1,4 +1,3 @@
-#include "include/locker.hpp"
 #ifdef __CLANGD__
 #include <Arduino.h>
 #endif
@@ -7,6 +6,7 @@
 #include "include/ble_host.hpp"
 #include "include/nfc_reader.hpp"
 #include "include/alarm.hpp"
+#include "include/locker.hpp"
 #include "include/actuators.hpp"
 
 #define SLOW_POLLING_PERIOD 500
@@ -16,12 +16,15 @@ NfcReader nfc(Serial1, host);
 
 Alarm alarm(10);
 Locker locker(9);
+Screen screen("Hello", "Setting up...");
 
-Actuators actuate(host, alarm, locker, nfc);
+Actuators actuate(host, alarm, locker, nfc, screen);
 
 unsigned long slow_polling_last_ms = millis();
 
 void setup(void) {
+    screen.initialise();
+
     Serial.begin(115200);
     while (!Serial) {
     }

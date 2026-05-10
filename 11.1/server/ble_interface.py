@@ -9,9 +9,9 @@ from datetime import datetime
 BLE_SERVICE_UUID = "00000100-addd-43a2-b9cc-6c8adc8a7761"
 BLE_SESSION_CHAR_UUID = "00000101-addd-43a2-b9cc-6c8adc8a7761"
 BLE_ENQUEUE_CHAR_UUID = "00000110-addd-43a2-b9cc-6c8adc8a7761"
-BLE_LOCK_CHAR_UUID = "00000120-addd-43a2-b9cc-6c8adc8a7761"
-BLE_PRIORITY_CHAR_UUID = "00000130-addd-43a2-b9cc-6c8adc8a7761"
+BLE_START_CHAR_UUID = "00000120-addd-43a2-b9cc-6c8adc8a7761"
 BLE_ALERT_CHAR_UUID = "00000140-addd-43a2-b9cc-6c8adc8a7761"
+BLE_PRIORITY_CHAR_UUID = "00000130-addd-43a2-b9cc-6c8adc8a7761"
 BLE_WEBLINK_CHAR_UUID = "00000150-addd-43a2-b9cc-6c8adc8a7761"
 BLE_METADATA_CHAR_UUID = "00000160-addd-43a2-b9cc-6c8adc8a7761"
 BLE_SERVERPOLL_CHAR_UUID = "00000170-addd-43a2-b9cc-6c8adc8a7761"
@@ -199,7 +199,7 @@ class BleInterface:
             print("sent priority data:", data)
             await self._client.write_gatt_char(BLE_PRIORITY_CHAR_UUID, data.encode())
 
-    async def start_lock(self) -> None:
+    async def set_start_action(self) -> None:
         if not self._client:
             print("ERROR: Client is not created")
             raise BleakDeviceNotFoundError(BLE_SERVICE_UUID)
@@ -208,9 +208,9 @@ class BleInterface:
             print("WARN: Read/write attempt with BLE device failed")
             raise BleakError("Connection lost")
 
-        await self._client.write_gatt_char(BLE_LOCK_CHAR_UUID, bytes([0x01]))
+        await self._client.write_gatt_char(BLE_START_CHAR_UUID, bytes([0x01]))
 
-    async def stop_lock(self) -> None:
+    async def end_start_action(self) -> None:
         if not self._client:
             print("ERROR: Client is not created")
             raise BleakDeviceNotFoundError(BLE_SERVICE_UUID)
@@ -219,7 +219,7 @@ class BleInterface:
             print("WARN: Read/write attempt with BLE device failed")
             raise BleakError("Connection lost")
 
-        await self._client.write_gatt_char(BLE_LOCK_CHAR_UUID, bytes([0x00]))
+        await self._client.write_gatt_char(BLE_START_CHAR_UUID, bytes([0x00]))
 
     async def start_alert(self) -> None:
         if not self._client:

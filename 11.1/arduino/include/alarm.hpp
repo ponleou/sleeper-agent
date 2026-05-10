@@ -3,7 +3,14 @@
 
 #define ALARM_FREQ 3000
 
-class Alarm {
+class IAlarm {
+  public:
+    virtual void off();
+    virtual void on();
+    virtual void toggle();
+};
+
+class Alarm : public IAlarm {
   private:
     const int buzzer;
     bool is_on;
@@ -11,7 +18,7 @@ class Alarm {
   public:
     Alarm(int pin);
 
-    void off();
-    void on();
-    void toggle();
+    void off() override;
+    void on() override;
+    void toggle() override;
 };
