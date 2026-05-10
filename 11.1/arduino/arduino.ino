@@ -9,14 +9,20 @@
 #include "include/locker.hpp"
 #include "include/actuators.hpp"
 
+#define PRIORITY_BUTTON_PIN 7
+#define LOCK_RIGHT_PIN 8
+#define LOCK_LEFT_PIN 9
+#define ALARM_PIN 10
+#define SCREEN_SENSOR_PIN 11
+
 #define SLOW_POLLING_PERIOD 500
 
 BleHost host;
 NfcReader nfc(Serial1, host);
 
-Alarm alarm(10);
-Locker locker(9);
-Screen screen("Hello", "Setting up...");
+Alarm alarm(ALARM_PIN);
+Locker locker(LOCK_LEFT_PIN);
+Screen screen(SCREEN_SENSOR_PIN, "Hello", "Setting up...");
 
 Actuators actuate(host, alarm, locker, nfc, screen);
 

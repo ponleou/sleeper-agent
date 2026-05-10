@@ -1,6 +1,7 @@
 #include "include/actuators.hpp"
 
-Actuators::Actuators(IBleHostActuatorReader &host_reader, IAlarm &alarm, ILocker &locker, INfcActuator &nfc, IScreen &screen)
+Actuators::Actuators(IBleHostActuatorReader &host_reader, IAlarm &alarm, ILocker &locker, INfcActuator &nfc,
+                     IScreen &screen)
     : host_reader(host_reader), alarm(alarm), locker(locker), nfc(nfc), screen(screen) {
     this->reset_priority_states();
 }
@@ -22,12 +23,12 @@ void Actuators::reset() {
 }
 
 void Actuators::update() {
-    this->screen.update();
 
     if (!this->host_reader.read_server_status()) {
         this->screen.set_text(":(");
         this->screen.set_subtext("Server disconnected");
         this->reset();
+        this->screen.update();
         return;
     }
 
@@ -55,12 +56,17 @@ void Actuators::update() {
             if (!this->priority_running) {
                 this->priority_running = true;
                 this->priority_running_start_time_ms = millis();
+
             } else if (millis() - this->priority_running_start_time_ms >= PRIORITY_TIME_DURATION_MS) {
                 this->reset_priority_states();
+
             }
 
-            int time_remaining = max(0, (int)(PRIORITY_TIME_DURATION_MS - (millis() - this->priority_running_start_time_ms)) / 1000);
-            this->screen.set_subtext("Break time ends in " + String(time_remaining) + "s");
+            int time_remaining =
+                max(0, (int)(PRIORITY_TIME_DURATION_MS - (millis() - this->priority_running_start_time_ms)) / 1000);
+
+            this->screen.set_subtext("Break time for " + String(time_remaining) + "s");
+
         }
 
         // if it is start action, it means the phone was previously in lock
@@ -75,7 +81,9 @@ void Actuators::update() {
                     this->reset_priority_states();
                 }
 
-                int time_remaining = max(0, (int)(PRIORITY_ACTION_DISMISS_DURATION_MS - (millis() - this->priority_action_start_time_ms)) / 1000);
+                int time_remaining = max(
+                    0, (int)(PRIORITY_ACTION_DISMISS_DURATION_MS - (millis() - this->priority_action_start_time_ms)) /
+                           1000);
                 this->screen.set_subtext("Dismissed in " + String(time_remaining) + "s");
             }
             // // if it has already been active, and the phone is back in the lock, assume they finished with their
@@ -97,14 +105,18 @@ void Actuators::update() {
             }
         }
 
+
+        this->screen.update(true);
+
         return;
     }
 
     if (alert_action) {
         Serial.println("ALERT ACTION");
-        this->screen.set_text(">:(");
+        this->screen.set_text(":<");
         this->screen.set_subtext("It is bedtime!");
         this->alarm.toggle();
+        this->screen.update(true);
     } else {
         this->alarm.off();
     }
@@ -115,6 +127,7 @@ void Actuators::update() {
         this->screen.set_subtext("Go to sleep.");
         this->locker.lock();
         this->nfc.start_action(&this->priority_action);
+        this->screen.update();
     } else {
         Serial.println("STOP ACTION");
         this->locker.unlock();
@@ -124,5 +137,6 @@ void Actuators::update() {
     if (!start_action && !alert_action) {
         this->screen.set_text(":)");
         this->screen.set_subtext("Hello!");
+        this->screen.update();
     }
 }
