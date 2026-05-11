@@ -64,6 +64,8 @@ class NfcReader: public INfcActuator {
     bool metadata_collected;
     bool weblink_provided;
 
+    bool attempt_reconnect_sensor();
+
     void check_connection();
     void select_hce();
     void communicate();
@@ -72,8 +74,6 @@ class NfcReader: public INfcActuator {
     bool check_matching_priority(String data, String priority_data);
 
   public:
-    uint32_t version_data;
-
     NfcReader(HardwareSerial &serial, IBleHostStateCommunicator &host);
 
     bool initialise();

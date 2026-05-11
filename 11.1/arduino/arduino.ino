@@ -10,11 +10,13 @@
 #include "include/actuators.hpp"
 #include "include/priority_button.hpp"
 
-#define ALARM_PIN 8
-#define SCREEN_SENSOR_PIN 11
-#define PRIORITY_BUTTON_PIN 10
+#define SCREEN_SENSOR_PIN 2
+#define PRIORITY_BUTTON_PIN 3
+
+#define ALARM_PIN 6
+
 #define LOCK_RIGHT_PIN 12
-#define LOCK_LEFT_PIN 9
+#define LOCK_LEFT_PIN 10
 
 #define SLOW_POLLING_PERIOD 500
 
@@ -22,7 +24,7 @@ BleHost host;
 NfcReader nfc(Serial1, host);
 
 Alarm alarm(ALARM_PIN);
-Locker locker(LOCK_LEFT_PIN);
+Locker locker(LOCK_LEFT_PIN, LOCK_RIGHT_PIN);
 Screen screen(SCREEN_SENSOR_PIN, "Hello", "Setting up...");
 PriorityButton button(PRIORITY_BUTTON_PIN);
 

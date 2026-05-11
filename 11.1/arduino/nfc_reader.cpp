@@ -3,7 +3,6 @@
 
 NfcReader::NfcReader(HardwareSerial &serial, IBleHostStateCommunicator &host)
     : pn532hsu(serial), nfc(pn532hsu), host(host) {
-    this->version_data = 0;
     this->reset_state();
 }
 
@@ -41,10 +40,17 @@ void NfcReader::select_hce() {
         this->selected = res_length >= 2 && response[res_length - 2] == 0x90 && response[res_length - 1] == 0x00;
 }
 
+bool NfcReader::attempt_reconnect_sensor() {
+    if (nfc.getFirmwareVersion())
+        return true;
+
+    return this->initialise();
+}
+
 bool NfcReader::initialise() {
     nfc.begin();
-    this->version_data = nfc.getFirmwareVersion();
-    if (!this->version_data) {
+    uint32_t version_data = nfc.getFirmwareVersion();
+    if (!version_data) {
         return false;
     }
     nfc.SAMConfig();
@@ -67,6 +73,14 @@ void NfcReader::reset_state() {
 void NfcReader::stateful_communication() {
     if (!this->host.poll_server_status()) {
         Serial.println("Server disconnected");
+    }
+
+    // check or try to reconnect with the sensor itself (not HCE connection)
+    // the function skips reconnect if its already connected
+    // always returns false if its not connected
+    if (!this->attempt_reconnect_sensor()) {
+        Serial.println("NFC Sensor disconnected, can't reconnect");
+        return;
     }
 
     if (!this->connected) {
