@@ -17,18 +17,6 @@ class Base(DeclarativeBase):
 
 
 @final
-class SessionRecord(Base):
-    __tablename__: str = "sessions"
-    session_id: Mapped[str] = mapped_column(String, primary_key=True)
-    registered: Mapped[bool] = mapped_column(Boolean, default=False)
-    bedtime: Mapped[time | None] = mapped_column(Time, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
-    notifications: Mapped[list[NotificationData]] = relationship("NotificationData")
-    meta: Mapped[SessionMeta] = relationship("SessionMeta", uselist=False)
-    priority: Mapped[PriorityData] = relationship("PriorityData")
-
-
-@final
 class NotificationData(Base):
     __tablename__: str = "notification_data"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -57,6 +45,17 @@ class PriorityData(Base):
     appname: Mapped[str] = mapped_column(String)
     title: Mapped[str] = mapped_column(String)
 
+
+@final
+class SessionRecord(Base):
+    __tablename__: str = "sessions"
+    session_id: Mapped[str] = mapped_column(String, primary_key=True)
+    registered: Mapped[bool] = mapped_column(Boolean, default=False)
+    bedtime: Mapped[time | None] = mapped_column(Time, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    notifications: Mapped[list[NotificationData]] = relationship("NotificationData")
+    meta: Mapped[SessionMeta] = relationship("SessionMeta", uselist=False)
+    priority: Mapped[PriorityData] = relationship("PriorityData")
 
 engine = create_engine("sqlite:///data/main.db")
 Base.metadata.create_all(engine)
