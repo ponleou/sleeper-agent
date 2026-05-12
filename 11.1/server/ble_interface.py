@@ -1,3 +1,4 @@
+from __future__ import annotations
 from bleak import BleakScanner, BleakClient
 from bleak.exc import BleakDeviceNotFoundError, BleakError
 from models import PriorityData, engine, NotificationData, SessionMeta
