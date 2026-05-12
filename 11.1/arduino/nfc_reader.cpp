@@ -102,9 +102,6 @@ void NfcReader::stateful_communication() {
 
     this->communicate();
     bool written = this->host.write_data_enqueue(this->collected_queue);
-    if (written) {
-        Serial.println("Written");
-    }
 }
 
 bool NfcCommands::identify(PN532 &nfc, String *value) {
@@ -123,7 +120,6 @@ bool NfcCommands::identify(PN532 &nfc, String *value) {
     deviceID[6] = '\0';
 
     *value = String(deviceID);
-    Serial.println(deviceID);
 
     return true;
 }
@@ -262,7 +258,6 @@ void NfcReader::communicate() {
             this->metadata_collected = true;
 
             this->host.write_metadata(metadata);
-            Serial.println(metadata);
         }
 
         // if still not collected, retry
@@ -284,7 +279,6 @@ void NfcReader::communicate() {
             this->connected = NfcCommands::open_weblink(this->nfc, link);
 
             if (!this->connected) {
-                Serial.println("failed to open link"); // TODO: remove print line
                 return;
             }
         }
@@ -376,7 +370,6 @@ void NfcReader::start_action(bool *priority_detected) {
 
     if (concat_data != "") {
         this->collected_queue.push(concat_data);
-        Serial.println(concat_data);
 
         bool priority_match = false;
         if (has_priority)
@@ -384,7 +377,6 @@ void NfcReader::start_action(bool *priority_detected) {
 
         if (priority_match) {
             *priority_detected = priority_match;
-            Serial.println("Priority match");
         }
     }
 }

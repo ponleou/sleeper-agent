@@ -41,7 +41,6 @@ void Actuators::update() {
 
     // if priority is happening, then we unlock
     if (this->priority_action) {
-        Serial.println("PRIORITY ACTION");
         this->screen.set_text("!!!");
 
         if (!this->priority_exec_once) {
@@ -114,7 +113,6 @@ void Actuators::update() {
     }
 
     if (alert_action) {
-        Serial.println("ALERT ACTION");
         this->screen.set_text(":<");
         this->screen.set_subtext("It is bedtime!");
         this->alarm.toggle();
@@ -124,14 +122,12 @@ void Actuators::update() {
     }
 
     if (start_action) {
-        Serial.println("START ACTION");
         this->screen.set_text("GOOD NIGHT");
         this->screen.set_subtext("Go to sleep.");
         this->locker.lock();
         this->nfc.start_action(&this->priority_action);
         this->screen.update();
     } else {
-        Serial.println("STOP ACTION");
         this->locker.unlock();
         this->nfc.stop_action();
     }

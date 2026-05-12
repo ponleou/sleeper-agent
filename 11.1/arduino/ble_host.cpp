@@ -155,7 +155,6 @@ bool BleHost::poll_server_status() {
 
     int poll_value = this->server_poll.value();
     poll_value += millis() - this->last_server_poll_ms;
-    Serial.println(poll_value);
     this->last_server_poll_ms = millis();
     this->server_poll.writeValue(poll_value);
 

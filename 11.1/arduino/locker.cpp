@@ -16,7 +16,6 @@ Locker::Locker(int left_pin, int right_pin) {
 }
 
 void Locker::lock() {
-    // Serial.println("lock");
     if (millis() - this->last_moved_ms < SERVO_MOVE_COOLDOWN_MS) 
         return;
 
@@ -37,7 +36,6 @@ void Locker::lock() {
 
 
 void Locker::unlock() {
-    // Serial.println("unlock");
     if (millis() - this->last_moved_ms < SERVO_MOVE_COOLDOWN_MS) 
         return;
 
