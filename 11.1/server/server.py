@@ -6,42 +6,65 @@ import threading
 from app import app
 
 
-async def poll_ble_server(interface: BleInterface):
+async def poll_ble_server(interface: BleInterface) -> None:
     while True:
-        print("POLL BLE SERVER")
         await interface.poll_ble()
         await asyncio.sleep(3)
 
 
-def poll_ble_server_thread(interface: BleInterface, loop: asyncio.AbstractEventLoop):
-    asyncio.run_coroutine_threadsafe(poll_ble_server(interface), loop).result()
+def poll_ble_thread(interface: BleInterface, main_loop: asyncio.AbstractEventLoop, stop_event: asyncio.Event, exc_holder: list[Exception]) -> None:
+    try:
+        asyncio.run_coroutine_threadsafe(poll_ble_server(interface), main_loop).result()
+    except (BleakGATTProtocolError, BleakDeviceNotFoundError, BleakError, Exception) as e:
+        exc_holder.append(e)
+        try:
+            _ = main_loop.call_soon_threadsafe(stop_event.set)
+        except RuntimeError:
+            pass
+
+
+def state_machine_thread(interface: BleInterface, main_loop: asyncio.AbstractEventLoop, stop_event: asyncio.Event, exc_holder: list[Exception]) -> None:
+    async def run() -> None:
+        machine = StateMachine(interface)
+        await machine.start()
+    try:
+        asyncio.run_coroutine_threadsafe(run(), main_loop).result()
+    except (BleakGATTProtocolError, BleakDeviceNotFoundError, BleakError, Exception) as e:
+        exc_holder.append(e)
+        try:
+            _ = main_loop.call_soon_threadsafe(stop_event.set)
+        except RuntimeError:
+            pass
+
 
 async def main() -> None:
     interface = await BleInterface().create()
-    print("connected")
+    print("Connected")
 
-    loop = asyncio.get_event_loop()
-    _ = threading.Thread(target=poll_ble_server_thread, args=(interface, loop), daemon=True).start()
-    _ = threading.Thread(target=app.run, kwargs={"host": "0.0.0.0"}, daemon=True).start()
+    main_loop = asyncio.get_event_loop()
+    stop_event = asyncio.Event()
+    exc_holder: list[Exception] = []
 
-    machine = StateMachine(interface)
-    await machine.start()
+    threading.Thread(target=poll_ble_thread, args=(interface, main_loop, stop_event, exc_holder), daemon=True).start()
+    threading.Thread(target=state_machine_thread, args=(interface, main_loop, stop_event, exc_holder), daemon=True).start()
+
+    _ = await stop_event.wait()
+    raise exc_holder[0]
 
 
 if __name__ == "__main__":
+    threading.Thread(target=app.run, kwargs={"host": "0.0.0.0"}, daemon=True).start()
+
     while True:
         try:
             asyncio.run(main())
-
-        # these are expected errors when disconnected from BLE, just keep trying to reconnect
-        except BleakDeviceNotFoundError as e:
+        except (BleakGATTProtocolError, BleakDeviceNotFoundError, BleakError) as e:
             print(e)
             print("Reconnecting...")
-        except (BleakError, BleakGATTProtocolError) as e:
-            print(e)
-            print("Reconnecting...")
-
-        # close server
         except KeyboardInterrupt:
             print("\nExiting...")
+            break
+        except Exception as e:
+            print(e)
+            print("Unhandled error, failed to restart.")
             break

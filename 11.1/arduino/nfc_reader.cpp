@@ -44,6 +44,7 @@ bool NfcReader::attempt_reconnect_sensor() {
     if (nfc.getFirmwareVersion())
         return true;
 
+    Serial.println("NFC Sensor disconnected, attempting reconnection.");
     return this->initialise();
 }
 

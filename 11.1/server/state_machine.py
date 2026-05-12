@@ -172,10 +172,9 @@ class AlertState(State):
     @override
     async def run(self, interface: BleInterface) -> State:
         if self.returning:
-            print("returning")
-            await asyncio.sleep(1)  # FIXME: increase time
-
-        print("ALERT STATE")
+            await asyncio.sleep(2)
+        else:
+            print("ALERT STATE")
 
         if not self.execute_once:
             self.execute_once = True
@@ -232,8 +231,7 @@ class ScanningState(State):
     @override
     async def run(self, interface: BleInterface) -> State:
         if self.returning:
-            print("returning")
-            await asyncio.sleep(1)  # FIXME: increase time
+            await asyncio.sleep(3)
 
         if not self.execute_once:
             self.execute_once = True
@@ -248,7 +246,8 @@ class ScanningState(State):
         if self.latest_id == " ":
             self.latest_id = get_newest_session_id()
 
-        print("SCANNING STATE:", self.latest_id)
+        if not self.returning:
+            print("SCANNING STATE:", self.latest_id)
 
         if not self.is_registered:
             self.is_registered = is_registered(self.latest_id)
@@ -307,14 +306,14 @@ class DetectedState(State):
     @override
     async def run(self, interface: BleInterface) -> State:
         if self.returning:
-            print("returning")
-            await asyncio.sleep(1)  # FIXME: increase time
+            await asyncio.sleep(3)
 
         id = await interface.get_identity()
         if id == " ":
             return ScanningState()
 
-        print("DETECTED STATE:", id)
+        if not self.returning:
+            print("DETECTED STATE:", id)
 
         # only runs once per identified session id
         if not self.execute_once:
@@ -387,14 +386,15 @@ class ActiveState(State):
     @override
     async def run(self, interface: BleInterface) -> State:
         if self.returning:
-            print("returning")
-            await asyncio.sleep(1)  # FIXME: increase time
+            await asyncio.sleep(10)
 
         id = await interface.get_identity()
         if id == " ":
             return ScanningState()
 
-        print("ACTIVE STATE:", id)
+        if not self.returning:
+            print("ACTIVE STATE:", id)
+            
         await interface.store_dequeue(id)
 
         if not self.execute_once:
