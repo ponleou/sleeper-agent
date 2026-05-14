@@ -11,9 +11,10 @@
 #include "include/priority_button.hpp"
 
 #define SCREEN_SENSOR_PIN 2
-#define PRIORITY_BUTTON_PIN 4
+#define PRIORITY_BUTTON_PIN 3
 
-#define ALARM_PIN 6
+#define ALARM_PIN 5
+// #define ALARM_PIN 7
 
 #define LOCK_RIGHT_PIN 12
 #define LOCK_LEFT_PIN 10

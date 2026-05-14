@@ -45,6 +45,7 @@ class INfcActuator {
   public:
     virtual void start_action(bool *priority_detected);
     virtual void stop_action();
+    virtual bool is_identified();
 };
 
 class NfcReader: public INfcActuator {
@@ -79,8 +80,10 @@ class NfcReader: public INfcActuator {
     bool initialise();
     void stateful_communication();
     void open_link_action();
+
     void start_action(bool *priority_detected) override;
     void stop_action() override;
+    bool is_identified() override;
 };
 
 class NfcCommands {

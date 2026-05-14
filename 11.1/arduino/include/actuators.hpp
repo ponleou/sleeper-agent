@@ -8,7 +8,7 @@
 
 #define PRIORITY_ACTION_DISMISS_DURATION_MS 6000
 #define PRIORITY_TIME_DURATION_MS 12000
-#define UNOCCURING_PRIORITY_COUNT_THRESHOLD 10
+#define PRIORITY_ENDING_COUNTDOWN 1500
 
 class Actuators {
   private:
@@ -24,7 +24,8 @@ class Actuators {
     unsigned long priority_action_start_time_ms;
     bool priority_running;
     unsigned long priority_running_start_time_ms;
-    uint8_t unoccuring_priority_count;
+    bool priority_ending;
+    unsigned long priority_ending_start_time_ms;
 
     void reset_priority_states();
     void reset();

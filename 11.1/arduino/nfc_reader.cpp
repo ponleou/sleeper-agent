@@ -395,3 +395,7 @@ void NfcReader::stop_action() {
     if (!this->connected)
         return;
 }
+
+bool NfcReader::is_identified() {
+    return this->connected && this->identified;
+}
