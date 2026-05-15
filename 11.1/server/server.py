@@ -1,9 +1,11 @@
 import asyncio
+from time import sleep
 from state_machine import StateMachine
 from bleak.exc import BleakDeviceNotFoundError, BleakError, BleakGATTProtocolError
 from ble_interface import BleInterface
 import threading
 from app import app
+from typing import cast
 
 
 async def poll_ble_server(interface: BleInterface) -> None:
@@ -37,9 +39,10 @@ def state_machine_thread(interface: BleInterface, main_loop: asyncio.AbstractEve
             pass
 
 
-async def main() -> None:
+async def main(retry: list[int]) -> None:
     interface = await BleInterface().create()
     print("Connected")
+    retry[0] = 0
 
     main_loop = asyncio.get_event_loop()
     stop_event = asyncio.Event()
@@ -54,13 +57,19 @@ async def main() -> None:
 
 if __name__ == "__main__":
     threading.Thread(target=app.run, kwargs={"host": "0.0.0.0"}, daemon=True).start()
+    
+    retry: list[int] = [0]
 
     while True:
         try:
-            asyncio.run(main())
+            asyncio.run(main(retry))
         except (BleakGATTProtocolError, BleakDeviceNotFoundError, BleakError) as e:
             print(e)
-            print("Reconnecting...")
+
+            wait_time = min(cast(int, 2 ** retry[0]), 64);
+            print(f"Reconnecting in {wait_time}s...")
+            sleep(wait_time)
+            retry[0] = retry[0] + 1
         except KeyboardInterrupt:
             print("\nExiting...")
             break
