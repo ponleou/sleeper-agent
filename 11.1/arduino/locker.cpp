@@ -8,6 +8,7 @@ Locker::Locker(int left_pin, int right_pin) {
     this->left_servo.write(0);
     delay(SERVO_MOVE_COOLDOWN_MS);
     this->right_servo.write(90);
+    delay(SERVO_MOVE_COOLDOWN_MS);
 
     this->left_locked = false;
     this->right_locked = false;
