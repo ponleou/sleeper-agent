@@ -37,8 +37,6 @@ void setup(void) {
     screen.initialise();
 
     Serial.begin(115200);
-    while (!Serial) {
-    }
 
     host.initialise();
 
