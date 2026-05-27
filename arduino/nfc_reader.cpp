@@ -44,7 +44,9 @@ bool NfcReader::attempt_reconnect_sensor() {
     if (nfc.getFirmwareVersion())
         return true;
 
-    Serial.println("NFC Sensor disconnected, attempting reconnection.");
+    if (Serial)
+        Serial.println("NFC Sensor disconnected, attempting reconnection.");
+
     return this->initialise();
 }
 
@@ -73,14 +75,18 @@ void NfcReader::reset_state() {
 
 void NfcReader::stateful_communication() {
     if (!this->host.poll_server_status()) {
-        Serial.println("Server disconnected");
+        if (Serial.available())
+            Serial.println("Server disconnected");
     }
 
     // check or try to reconnect with the sensor itself (not HCE connection)
     // the function skips reconnect if its already connected
     // always returns false if its not connected
     if (!this->attempt_reconnect_sensor()) {
-        Serial.println("NFC Sensor disconnected, can't reconnect");
+
+        if (Serial.available())
+            Serial.println("NFC Sensor disconnected, can't reconnect");
+
         return;
     }
 

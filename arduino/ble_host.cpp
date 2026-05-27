@@ -143,6 +143,9 @@ void BleHost::reset_ble() {
 }
 
 void BleHost::debug_print() {
+    if (!Serial)
+        return;
+
     // Serial.println(this->data_enqueue.value());
     // Serial.println(this->data_enqueue.valueLength());
     // Serial.println(this->data_enqueue.value() == " ");

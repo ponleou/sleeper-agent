@@ -19,7 +19,10 @@ void Screen::initialise() {
     Wire.begin();
     Wire.setTimeout(3000);
     if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { // Address 0x3D for 128x64
-        Serial.println(F("SSD1306 allocation failed"));
+
+        if (Serial)
+            Serial.println(F("SSD1306 allocation failed"));
+
         while (true) {
         }
     }
